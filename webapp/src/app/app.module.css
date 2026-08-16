@@ -1,0 +1,177 @@
+.appContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #0f172a;
+  color: #f8fafc;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.header {
+  height: 60px;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+
+.logoGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logoTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.badge {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mainLayout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 280px;
+  background: rgba(30, 41, 59, 0.7);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.sidebarTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.contentArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px;
+  overflow: hidden;
+  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%);
+}
+
+.tableHeaderBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.tableTitleInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.searchBox {
+  width: 300px;
+}
+
+.tableContainer {
+  flex: 1;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tableRow {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+
+.tableRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tableRowActive {
+  background: rgba(56, 189, 248, 0.12) !important;
+  border-left: 3px solid #38bdf8;
+}
+
+.colTitle {
+  flex: 2;
+  font-weight: 500;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colArtist {
+  flex: 1.5;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colAction {
+  width: 80px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.footerPlayer {
+  height: 80px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.playingInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 300px;
+}
+
+.audioControls {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

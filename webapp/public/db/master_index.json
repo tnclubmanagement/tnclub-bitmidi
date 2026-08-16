@@ -1,0 +1,26 @@
+[
+  {
+    "shard": "shard_001.sqlite",
+    "start_artist": "\"Weird Al\" Yankovic",
+    "end_artist": "Earth, Wind & Fire",
+    "record_count": 5000
+  },
+  {
+    "shard": "shard_002.sqlite",
+    "start_artist": "Earth, Wind & Fire",
+    "end_artist": "Mosch",
+    "record_count": 5000
+  },
+  {
+    "shard": "shard_003.sqlite",
+    "start_artist": "Mosch",
+    "end_artist": "The Corrs",
+    "record_count": 5000
+  },
+  {
+    "shard": "shard_004.sqlite",
+    "start_artist": "The Corrs",
+    "end_artist": "ZZ Top",
+    "record_count": 2256
+  }
+]
