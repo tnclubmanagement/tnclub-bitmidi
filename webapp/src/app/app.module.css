@@ -3,22 +3,47 @@
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background-color: #0f172a;
+  background-color: #090d16;
   color: #f8fafc;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
 }
 
+/* Custom Sleek Glassmorphism Scrollbar */
+.appContainer ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.appContainer ::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 10px;
+}
+
+.appContainer ::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s ease;
+}
+
+.appContainer ::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
 .header {
-  height: 60px;
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  height: 64px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 28px;
   flex-shrink: 0;
+  z-index: 10;
+  gap: 20px;
 }
 
 .logoGroup {
@@ -28,65 +53,194 @@
 }
 
 .logoTitle {
-  font-size: 1.25rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+  font-size: 1.35rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #38bdf8 0%, #a855f7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.shardSelectHeader {
+  min-width: 260px;
 }
 
 .badge {
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(56, 189, 248, 0.12);
   color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 2px 8px;
-  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 3px 10px;
+  border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
 }
 
+/* Hero Banner Styles */
+.heroCard {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.heroTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.heroHeading {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0 0 8px 0;
+}
+
+.heroHeading span {
+  background: linear-gradient(135deg, #38bdf8 0%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.heroSubtext {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.heroFeatures {
+  display: flex;
+  gap: 24px;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.featureItem strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+}
+
+.featureItem span {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.featureIcon {
+  font-size: 18px;
+  color: #38bdf8;
+}
+
+/* Visualizer Styles */
+.visualizerContainer {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.visualizerHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.visualizerActiveTag {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.pianoKeyboard {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 64px;
+  background: #0f172a;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.whiteKey {
+  flex: 1;
+  height: 100%;
+  background: #e2e8f0;
+  border-right: 1px solid #94a3b8;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  transition: background 0.1s ease, box-shadow 0.1s ease;
+}
+
+.blackKey {
+  position: absolute;
+  width: calc(100% / 52 * 0.65);
+  height: 60%;
+  background: #0f172a;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  z-index: 2;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  transition: background 0.1s ease, box-shadow 0.1s ease;
+}
+
+.activeKey {
+  background: #38bdf8 !important;
+  box-shadow: 0 0 16px #38bdf8 !important;
+}
+
+/* Main Layout - 100% Full Width */
 .mainLayout {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-.sidebar {
-  width: 280px;
-  background: rgba(30, 41, 59, 0.7);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  gap: 16px;
-  flex-shrink: 0;
-}
-
-.sidebarTitle {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
-}
-
 .contentArea {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px 24px;
-  overflow: hidden;
-  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%);
+  padding: 24px 32px;
+  overflow-y: auto;
+  background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.04), transparent 45%);
 }
 
 .tableHeaderBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .tableTitleInfo {
@@ -95,14 +249,156 @@
   gap: 12px;
 }
 
-.searchBox {
-  width: 300px;
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* A-Z Quick Filter Bar */
+.alphaBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  width: 100%;
+}
+
+.alphaBtn {
+  flex: 1;
+  min-width: 32px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(30, 41, 59, 0.5);
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.alphaBtn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.alphaBtnActive {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+}
+
+/* Grid Layout Cards Wrapper */
+.gridContainerWrapper {
+  flex: 1;
+  min-height: 400px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.gridListContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  padding: 16px;
+}
+
+.gridItemWrapper {
+  display: flex;
+}
+
+.gridCard {
+  width: 100%;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.cardGenreTag {
+  font-size: 0.7rem;
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.gridCard:hover {
+  transform: translateY(-2px);
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.gridCardActive {
+  background: rgba(56, 189, 248, 0.15) !important;
+  border-color: #38bdf8 !important;
+}
+
+.cardHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardNumberBadge {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.gridCardTitle {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4px;
+}
+
+.gridCardArtist {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gridCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .tableContainer {
   flex: 1;
-  background: rgba(30, 41, 59, 0.5);
-  border-radius: 12px;
+  min-height: 400px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   display: flex;
@@ -112,24 +408,31 @@
 .tableRow {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  transition: background 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
 
 .tableRow:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .tableRowActive {
   background: rgba(56, 189, 248, 0.12) !important;
-  border-left: 3px solid #38bdf8;
+  border-left: 4px solid #38bdf8;
+}
+
+.colNo {
+  width: 60px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
 }
 
 .colTitle {
   flex: 2;
-  font-weight: 500;
+  font-weight: 600;
   color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
@@ -144,34 +447,126 @@
   text-overflow: ellipsis;
 }
 
-.colAction {
-  width: 80px;
+.colDuration {
+  width: 90px;
+  font-size: 0.8rem;
+  color: #38bdf8;
+  font-weight: 600;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
 }
 
+.colFormat {
+  width: 110px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.formatBadge {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.cardMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.colAction {
+  width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Playlist Drawer Styles */
+.playlistRowItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.playlistRowItem:hover {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+/* Floating Player Footer */
 .footerPlayer {
-  height: 80px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(16px);
+  height: 90px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(20px);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
-  padding: 0 24px;
+  padding: 0 32px;
   justify-content: space-between;
   flex-shrink: 0;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+  gap: 24px;
 }
 
 .playingInfo {
   display: flex;
   align-items: center;
   gap: 16px;
-  width: 300px;
+  width: 280px;
 }
 
-.audioControls {
+.audioControlsCenter {
   flex: 1;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
+  gap: 6px;
+  max-width: 600px;
+}
+
+.buttonRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.seekRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.timeText {
+  font-size: 0.75rem;
+  color: #64748b;
+  min-width: 40px;
+  text-align: center;
+}
+
+.audioControlsRight {
+  width: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.volumeSlider {
+  width: 90px;
 }

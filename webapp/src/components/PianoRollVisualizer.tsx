@@ -1,0 +1,86 @@
+"use client";
+
+import React from "react";
+import styles from "@/app/app.module.css";
+
+interface VisualizerProps {
+  activeNote?: number | null;
+}
+
+export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
+  // 52 White Keys mapping
+  // A0 (21) to C8 (108)
+  const WHITE_KEYS = [
+    21, 23, 24, 26, 28, 29, 31, 33, 35, 36, 38, 40, 41, 43, 45, 47, 48, 50, 52, 53, 55, 57, 59,
+    60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84, 86, 88, 89, 91, 93, 95, 96, 98,
+    100, 101, 103, 105, 107, 108
+  ];
+
+  // Black keys mapping to their relative position index (after white key index)
+  const BLACK_KEYS: { note: number; afterWhiteIndex: number }[] = [
+    { note: 22, afterWhiteIndex: 0 },
+    { note: 25, afterWhiteIndex: 2 },
+    { note: 27, afterWhiteIndex: 3 },
+    { note: 30, afterWhiteIndex: 5 },
+    { note: 32, afterWhiteIndex: 6 },
+    { note: 34, afterWhiteIndex: 7 },
+    { note: 37, afterWhiteIndex: 9 },
+    { note: 39, afterWhiteIndex: 10 },
+    { note: 42, afterWhiteIndex: 12 },
+    { note: 44, afterWhiteIndex: 13 },
+    { note: 46, afterWhiteIndex: 14 },
+    { note: 49, afterWhiteIndex: 16 },
+    { note: 51, afterWhiteIndex: 17 },
+    { note: 54, afterWhiteIndex: 19 },
+    { note: 56, afterWhiteIndex: 20 },
+    { note: 58, afterWhiteIndex: 21 },
+    { note: 61, afterWhiteIndex: 23 },
+    { note: 63, afterWhiteIndex: 24 },
+    { note: 66, afterWhiteIndex: 26 },
+    { note: 68, afterWhiteIndex: 27 },
+    { note: 70, afterWhiteIndex: 28 },
+    { note: 73, afterWhiteIndex: 30 },
+    { note: 75, afterWhiteIndex: 31 },
+    { note: 78, afterWhiteIndex: 33 },
+    { note: 80, afterWhiteIndex: 34 },
+    { note: 82, afterWhiteIndex: 35 },
+    { note: 85, afterWhiteIndex: 37 },
+    { note: 87, afterWhiteIndex: 38 },
+    { note: 90, afterWhiteIndex: 40 },
+    { note: 92, afterWhiteIndex: 41 },
+    { note: 94, afterWhiteIndex: 42 },
+    { note: 97, afterWhiteIndex: 44 },
+    { note: 99, afterWhiteIndex: 45 },
+    { note: 102, afterWhiteIndex: 47 },
+    { note: 104, afterWhiteIndex: 48 },
+    { note: 106, afterWhiteIndex: 49 },
+  ];
+
+  return (
+    <div className={styles.visualizerContainer}>
+      <div className={styles.visualizerHeader}>
+        <span>🎹 Interactive SoundFont Piano Visualizer</span>
+        <span className={styles.visualizerActiveTag}>
+          {activeNote ? `Playing MIDI Note: ${activeNote}` : "Waiting for audio..."}
+        </span>
+      </div>
+
+      <div className={styles.pianoKeyboard}>
+        {WHITE_KEYS.map((note) => (
+          <div
+            key={note}
+            className={`${styles.whiteKey} ${activeNote === note ? styles.activeKey : ""}`}
+          />
+        ))}
+
+        {BLACK_KEYS.map(({ note, afterWhiteIndex }) => (
+          <div
+            key={note}
+            className={`${styles.blackKey} ${activeNote === note ? styles.activeKey : ""}`}
+            style={{ left: `${((afterWhiteIndex + 1) * (100 / 52)) - (100 / 52 * 0.35)}%` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

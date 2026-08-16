@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ThunderBoltOutlined, DatabaseOutlined, AudioOutlined } from "@ant-design/icons";
+import { ThunderboltOutlined, DatabaseOutlined, AudioOutlined } from "@ant-design/icons";
 import styles from "@/app/app.module.css";
 
 export default function HeroBanner() {
@@ -9,7 +9,7 @@ export default function HeroBanner() {
     <div className={styles.heroCard}>
       <div className={styles.heroContent}>
         <div className={styles.heroTag}>
-          <ThunderBoltOutlined /> Local-First Web Audio Studio
+          <ThunderboltOutlined /> Local-First Web Audio Studio
         </div>
         <h1 className={styles.heroHeading}>
           Khám Phá & Thưởng Thức <span>17,000+ Nhạc MIDI</span> Siêu Tốc
