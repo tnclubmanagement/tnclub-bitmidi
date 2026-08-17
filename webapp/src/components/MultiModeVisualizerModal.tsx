@@ -9,7 +9,6 @@ import {
   CustomerServiceOutlined,
 } from "@ant-design/icons";
 import { Midi } from "@tonejs/midi";
-import { Soundfont } from "smplr";
 import { TrackRecord } from "@/lib/sqlWorker";
 import PianoRollVisualizer from "@/components/PianoRollVisualizer";
 
@@ -17,135 +16,60 @@ type Props = {
   open: boolean;
   onClose: () => void;
   track: TrackRecord | null;
+  isPlaying: boolean;
+  currentTime: number;
+  totalDuration: number;
+  activeMidiNote: number | null;
+  togglePlay: () => void;
   getMidiUrl: (filePath: string) => string;
+  formatTime: (sec: number) => string;
 };
 
-export default function MultiModeVisualizerModal({ open, onClose, track, getMidiUrl }: Props) {
+export default function MultiModeVisualizerModal({
+  open,
+  onClose,
+  track,
+  isPlaying,
+  currentTime,
+  totalDuration,
+  activeMidiNote,
+  togglePlay,
+  getMidiUrl,
+  formatTime,
+}: Props) {
   const [visMode, setVisMode] = useState<"falling-notes" | "sheet" | "piano-roll">("falling-notes");
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [totalDuration, setTotalDuration] = useState<number>(0);
-  const [activeMidiNote, setActiveMidiNote] = useState<number | null>(null);
   const [midiData, setMidiData] = useState<Midi | null>(null);
-
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const soundfontRef = useRef<Soundfont | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const activeTimeoutsRef = useRef<number[]>([]);
-  const playbackTimerRef = useRef<number | null>(null);
 
-  const clearNotes = () => {
-    activeTimeoutsRef.current.forEach((id) => clearTimeout(id));
-    activeTimeoutsRef.current = [];
-    if (playbackTimerRef.current) {
-      clearInterval(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
-    setActiveMidiNote(null);
-    setCurrentTime(0);
-    if (soundfontRef.current) {
-      soundfontRef.current.stop();
-    }
-  };
-
-  const initSoundfont = async () => {
-    if (!audioCtxRef.current) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audioCtxRef.current = new AudioCtx();
-    }
-    if (audioCtxRef.current.state === "suspended") {
-      await audioCtxRef.current.resume();
-    }
-    if (!soundfontRef.current && audioCtxRef.current) {
-      soundfontRef.current = new Soundfont(audioCtxRef.current, {
-        instrument: "acoustic_grand_piano",
-      });
-      await soundfontRef.current.load;
-    }
-  };
-
-  const startPlayback = (midi: Midi) => {
-    clearNotes();
-    setIsPlaying(true);
-
-    playbackTimerRef.current = window.setInterval(() => {
-      setCurrentTime((prev) => {
-        const next = prev + 0.1;
-        return next <= midi.duration ? next : midi.duration;
-      });
-    }, 100);
-
-    midi.tracks.forEach((t) => {
-      t.notes.forEach((note) => {
-        const delayMs = note.time * 1000;
-        const tid = window.setTimeout(() => {
-          if (soundfontRef.current) {
-            setActiveMidiNote(note.midi);
-            soundfontRef.current.start({
-              note: note.midi,
-              velocity: Math.floor(note.velocity * 127),
-              duration: note.duration,
-            });
-          }
-        }, delayMs);
-        activeTimeoutsRef.current.push(tid);
-      });
-    });
-
-    const endId = window.setTimeout(() => {
-      setIsPlaying(false);
-      setActiveMidiNote(null);
-    }, midi.duration * 1000);
-    activeTimeoutsRef.current.push(endId);
-  };
-
+  // Load and parse MIDI file structure for Visualizer rendering
   useEffect(() => {
-    if (!open || !track) {
-      return;
-    }
+    if (!open || !track) return;
 
-    async function loadMidi() {
+    let isMounted = true;
+    async function loadMidiData() {
       try {
-        await initSoundfont();
-        let parsedMidi: Midi;
-        try {
-          const res = await fetch(getMidiUrl(track!.file_path));
-          if (!res.ok) throw new Error("MIDI 404");
-          const buffer = await res.arrayBuffer();
-          parsedMidi = new Midi(buffer);
-        } catch (e) {
-          console.warn("Using Dynamic Sequence Fallback for Stage Modal", e);
-          parsedMidi = new Midi();
-          const trk = parsedMidi.addTrack();
-          const notesScale = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
-          notesScale.forEach((n, idx) => {
-            trk.addNote({ midi: n, time: idx * 0.4, duration: 0.35, velocity: 0.85 });
-          });
-        }
-
-        setMidiData(parsedMidi);
-        setTotalDuration(parsedMidi.duration);
-        startPlayback(parsedMidi);
-      } catch (err) {
-        console.error("Modal playback init error", err);
+        const res = await fetch(getMidiUrl(track!.file_path));
+        if (!res.ok) throw new Error("MIDI 404");
+        const buffer = await res.arrayBuffer();
+        const parsedMidi = new Midi(buffer);
+        if (isMounted) setMidiData(parsedMidi);
+      } catch (e) {
+        console.warn("Using Dynamic Sequence Fallback for Synced Stage Visualizer", e);
+        const parsedMidi = new Midi();
+        const trk = parsedMidi.addTrack();
+        const notesScale = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
+        notesScale.forEach((n, idx) => {
+          trk.addNote({ midi: n, time: idx * 0.4, duration: 0.35, velocity: 0.85 });
+        });
+        if (isMounted) setMidiData(parsedMidi);
       }
     }
 
-    loadMidi();
-
+    loadMidiData();
     return () => {
-      clearNotes();
+      isMounted = false;
     };
-  }, [open, track]);
-
-  const togglePlay = () => {
-    if (isPlaying) {
-      clearNotes();
-      setIsPlaying(false);
-    } else if (midiData) {
-      startPlayback(midiData);
-    }
-  };
+  }, [open, track, getMidiUrl]);
 
   // Render Canvas 2D per mode (With High DPI Retina Scaling)
   useEffect(() => {
@@ -172,7 +96,7 @@ export default function MultiModeVisualizerModal({ open, onClose, track, getMidi
     ctx.clearRect(0, 0, width, height);
 
     if (visMode === "falling-notes") {
-      // 1. Render Falling Notes (Synthesia Style)
+      // 1. Render Falling Notes (Synthesia Style synced with Player)
       ctx.fillStyle = "#0f172a";
       ctx.fillRect(0, 0, width, height);
 
@@ -341,12 +265,6 @@ export default function MultiModeVisualizerModal({ open, onClose, track, getMidi
     }
   }, [visMode, currentTime, midiData, open, track]);
 
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
-
   return (
     <Modal
       title={
@@ -368,10 +286,7 @@ export default function MultiModeVisualizerModal({ open, onClose, track, getMidi
         </div>
       }
       open={open}
-      onCancel={() => {
-        clearNotes();
-        onClose();
-      }}
+      onCancel={onClose}
       width={940}
       footer={
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>

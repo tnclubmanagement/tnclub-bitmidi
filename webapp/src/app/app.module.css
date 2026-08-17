@@ -7,6 +7,209 @@
   color: #f8fafc;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ☀️ Pure Light Elegance Theme Styling Override */
+.theme_light {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.theme_light .contentArea {
+  background: radial-gradient(circle at top right, rgba(2, 132, 199, 0.05), transparent 45%) !important;
+}
+
+.theme_light .header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
+
+.theme_light .heroCard {
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04) !important;
+}
+
+.theme_light .heroHeading {
+  color: #0f172a !important;
+}
+
+.theme_light .heroSubtext {
+  color: #475569 !important;
+}
+
+.theme_light .featureItem {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+.theme_light .featureItem strong {
+  color: #0f172a !important;
+}
+
+.theme_light .tableHeaderBar {
+  background: transparent !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.theme_light .tableHeaderBar h2 {
+  color: #0f172a !important;
+}
+
+.theme_light .alphaBtn {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.theme_light .alphaBtn:hover {
+  background: #e0f2fe !important;
+  color: #0284c7 !important;
+}
+
+.theme_light .tableContainer {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03) !important;
+  color: #0f172a !important;
+}
+
+.theme_light .tableRow {
+  border-bottom-color: #f1f5f9 !important;
+}
+
+.theme_light .tableRow:hover {
+  background: #f8fafc !important;
+}
+
+.theme_light .compactRow {
+  border-bottom-color: #f1f5f9 !important;
+}
+
+.theme_light .compactRow:hover {
+  background: #f1f5f9 !important;
+}
+
+.theme_light .colNo {
+  color: #64748b !important;
+}
+
+.theme_light .colTitle {
+  color: #0f172a !important;
+}
+
+.theme_light .colArtist {
+  color: #475569 !important;
+}
+
+.theme_light .gridCard {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03) !important;
+  color: #0f172a !important;
+}
+
+.theme_light .gridCardTitle {
+  color: #0f172a !important;
+}
+
+.theme_light .gridCardArtist {
+  color: #475569 !important;
+}
+
+.theme_light .vinylCard {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03) !important;
+}
+
+.theme_light .vinylSleeve {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  border-color: #cbd5e1 !important;
+}
+
+.theme_light .vinylSleeve div {
+  color: #0f172a !important;
+}
+
+.theme_light .footerPlayer {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-top: 1px solid #e2e8f0 !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
+}
+
+.theme_light .footerPlayer div {
+  color: #0f172a !important;
+}
+
+/* ⚡ Theme Neon Cyber Styling Override */
+.theme_neon {
+  background-color: #020617 !important;
+  color: #38bdf8 !important;
+}
+
+.theme_neon .header {
+  background: rgba(5, 11, 20, 0.95) !important;
+  border-bottom-color: rgba(6, 182, 212, 0.4) !important;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+}
+
+.theme_neon .tableHeaderBar,
+.theme_neon .tableContainer,
+.theme_neon .gridCard,
+.theme_neon .compactRow,
+.theme_neon .vinylCard {
+  background: rgba(6, 182, 212, 0.04) !important;
+  border-color: rgba(6, 182, 212, 0.3) !important;
+  box-shadow: inset 0 0 15px rgba(6, 182, 212, 0.05);
+}
+
+.theme_neon .footerPlayer {
+  background: rgba(5, 11, 20, 0.96) !important;
+  border-top: 1px solid rgba(6, 182, 212, 0.4) !important;
+  box-shadow: 0 -10px 30px rgba(6, 182, 212, 0.2) !important;
+}
+
+/* 📻 Theme Retro Gold Styling Override */
+.theme_retro {
+  background-color: #0c0a09 !important;
+  color: #fef3c7 !important;
+}
+
+.theme_retro .header {
+  background: rgba(28, 25, 23, 0.95) !important;
+  border-bottom-color: rgba(217, 119, 6, 0.4) !important;
+  box-shadow: 0 4px 20px rgba(217, 119, 6, 0.15);
+}
+
+.theme_retro .tableHeaderBar,
+.theme_retro .tableContainer,
+.theme_retro .gridCard,
+.theme_retro .compactRow,
+.theme_retro .vinylCard {
+  background: rgba(28, 25, 23, 0.75) !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+  color: #fef3c7 !important;
+}
+
+.theme_retro .colTitle,
+.theme_retro .gridCardTitle {
+  color: #fef3c7 !important;
+}
+
+.theme_retro .colArtist,
+.theme_retro .gridCardArtist {
+  color: #d97706 !important;
+}
+
+.theme_retro .footerPlayer {
+  background: rgba(28, 25, 23, 0.96) !important;
+  border-top: 1px solid rgba(217, 119, 6, 0.4) !important;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* Custom Sleek Glassmorphism Scrollbar */
@@ -423,6 +626,129 @@
   border-left: 4px solid #38bdf8;
 }
 
+/* Compact List View */
+.compactRow {
+  display: flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  font-size: 0.85rem;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+
+.compactRow:hover {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.compactRowActive {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border-left: 3px solid #38bdf8;
+}
+
+/* High-End Vinyl Album Showcase View */
+.vinylCard {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.vinylCard:hover {
+  transform: translateY(-6px);
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.15);
+}
+
+.vinylWrapper {
+  position: relative;
+  width: 140px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Vinyl Sleeve Cover */
+.vinylSleeve {
+  position: absolute;
+  left: 10px;
+  width: 105px;
+  height: 105px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  text-align: center;
+}
+
+/* Real Vinyl Disc with Realistic Sound Grooves */
+.vinylDisc {
+  position: absolute;
+  right: 6px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle at center,
+    #111827 0,
+    #111827 3px,
+    #1f2937 4px,
+    #111827 5px
+  );
+  border: 2px solid #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+  z-index: 1;
+  transition: transform 0.4s ease;
+}
+
+.vinylCard:hover .vinylDisc {
+  transform: translateX(14px);
+}
+
+.vinylDiscSpin {
+  animation: spin 5s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.vinylCenterLabel {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  border: 3px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 0.65rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
 .colNo {
   width: 60px;
   font-size: 0.8rem;
@@ -569,4 +895,95 @@
 
 .volumeSlider {
   width: 90px;
+}
+
+/* 📱 Mobile & Tablet Responsive Enhancements */
+@media (max-width: 768px) {
+  .header {
+    height: auto;
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .logoGroup {
+    justify-content: center;
+  }
+
+  .headerControls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .headerControls > div,
+  .headerControls > button {
+    font-size: 0.8rem;
+  }
+
+  .mainLayout {
+    padding: 12px 12px 100px 12px;
+  }
+
+  .tableHeaderBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .toolbarRight {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .toolbarRight > div,
+  .toolbarRight > button {
+    flex: 1 1 auto;
+    min-width: 110px;
+  }
+
+  .searchBox {
+    width: 100%;
+  }
+
+  .colArtist,
+  .colFormat {
+    display: none;
+  }
+
+  .footerPlayer {
+    height: auto;
+    padding: 10px 16px;
+    flex-direction: column;
+    gap: 8px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+  }
+
+  .playingInfo {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .audioControlsCenter {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .audioControlsRight {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .volumeSlider {
+    width: 70px;
+  }
 }

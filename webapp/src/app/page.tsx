@@ -1,45 +1,92 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { Input, Spin, Badge, Button, Select, ConfigProvider, theme, Segmented, Tooltip, Slider, Drawer, message } from "antd";
+import { Input, Spin, Badge, Button, Select, ConfigProvider, theme, Segmented, Drawer, Popover, message } from "antd";
 import {
-  SoundOutlined,
   SearchOutlined,
-  PlayCircleFilled,
-  PauseCircleFilled,
   CustomerServiceOutlined,
   AppstoreOutlined,
   BarsOutlined,
-  DownloadOutlined,
-  RedoOutlined,
-  MutedOutlined,
-  ClockCircleOutlined,
   HeartOutlined,
   HeartFilled,
   UnorderedListOutlined,
   DeleteOutlined,
-  EyeOutlined,
+  CompassOutlined,
+  MenuOutlined,
+  SettingOutlined,
+  FilterOutlined,
 } from "@ant-design/icons";
-import { Virtuoso, VirtuosoGrid } from "react-virtuoso";
 import { MasterIndexEntry, TrackRecord, createShardWorker, fetchTracksFromShard } from "@/lib/sqlWorker";
 import type { WorkerHttpvfs } from "sql.js-httpvfs";
 import { Midi } from "@tonejs/midi";
 import { Soundfont } from "smplr";
 import HeroBanner from "@/components/HeroBanner";
 import MultiModeVisualizerModal from "@/components/MultiModeVisualizerModal";
+import FooterPlayer from "@/components/FooterPlayer";
+import TrackListView from "@/components/TrackListView";
+import { AppSettingsProvider, useAppSettings, ThemeMode, Language } from "@/context/AppSettingsContext";
 import styles from "./app.module.css";
 
 const ALPHA_KEYS = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
-export default function Home() {
+function MainStudioContent() {
+  const { themeMode, setThemeMode, language, setLanguage, t } = useAppSettings();
+
   const [masterIndex, setMasterIndex] = useState<MasterIndexEntry[]>([]);
   const [selectedShard, setSelectedShard] = useState<string>("");
   const [tracks, setTracks] = useState<TrackRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedAlpha, setSelectedAlpha] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("artist_asc");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [viewMode, setViewMode] = useState<"table" | "grid" | "compact" | "vinyl">("table");
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Dynamic Theme Algorithm Selector & Custom Token Palette
+  const getAntdTheme = () => {
+    if (themeMode === "light") {
+      return {
+        algorithm: theme.defaultAlgorithm,
+        token: {
+          colorPrimary: "#0284c7",
+          colorBgContainer: "#ffffff",
+          colorBgLayout: "#f8fafc",
+          colorText: "#0f172a",
+        },
+      };
+    }
+    if (themeMode === "neon") {
+      return {
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: "#06b6d4",
+          colorBgContainer: "#050b14",
+          colorBgLayout: "#020617",
+          colorText: "#38bdf8",
+        },
+      };
+    }
+    if (themeMode === "retro") {
+      return {
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: "#d97706",
+          colorBgContainer: "#1c1917",
+          colorBgLayout: "#0c0a09",
+          colorText: "#fef3c7",
+        },
+      };
+    }
+    // Default Dark Mode
+    return {
+      algorithm: theme.darkAlgorithm,
+      token: {
+        colorPrimary: "#0284c7",
+        colorBgContainer: "#0f172a",
+        colorBgLayout: "#090d16",
+        colorText: "#f8fafc",
+      },
+    };
+  };
 
   // Preset Curated Playlists (Spotify / Apple Music Style)
   const DEFAULT_PRESETS: TrackRecord[] = useMemo(() => [
@@ -411,36 +458,79 @@ export default function Home() {
   }, [tracks, selectedAlpha, selectedCountry, sortBy, showFavoritesOnly, playlist]);
 
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
-      <div className={styles.appContainer}>
+    <ConfigProvider theme={getAntdTheme()}>
+      <div className={`${styles.appContainer} ${styles[`theme_${themeMode}`] || ""}`}>
         {/* Header with Compact Shard Select & Playlist Counter */}
         <header className={styles.header}>
           <div className={styles.logoGroup}>
             <CustomerServiceOutlined style={{ fontSize: 28, color: "#38bdf8" }} />
             <h1 className={styles.logoTitle}>TN Web MIDI Studio</h1>
-            <span className={styles.badge}>Local-First SQLite Engine</span>
           </div>
 
           <div className={styles.headerControls}>
+            {/* Quick Settings Drawer / Modal Button */}
+            <Popover
+              content={
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 220, padding: "6px 0" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>{t.themeTitle}</div>
+                    <Select
+                      value={themeMode}
+                      style={{ width: "100%" }}
+                      onChange={(val) => setThemeMode(val as ThemeMode)}
+                      options={[
+                        { value: "dark", label: "🌙 Dark Mode" },
+                        { value: "light", label: "☀️ Light Mode" },
+                        { value: "neon", label: "⚡ Neon Cyber" },
+                        { value: "retro", label: "📻 Retro Gold" },
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>{t.langTitle}</div>
+                    <Select
+                      value={language}
+                      style={{ width: "100%" }}
+                      onChange={(val) => setLanguage(val as Language)}
+                      options={[
+                        { value: "vi", label: "🇻🇳 Tiếng Việt" },
+                        { value: "en", label: "🇺🇸 English" },
+                        { value: "ja", label: "🇯🇵 日本語" },
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>{t.artistsShard}</div>
+                    <Select
+                      style={{ width: "100%" }}
+                      value={selectedShard}
+                      onChange={(val) => setSelectedShard(val)}
+                      options={masterIndex.map((entry) => ({
+                        value: entry.shard as string,
+                        label: `${entry.start_artist} — ${entry.end_artist}`,
+                      }))}
+                    />
+                  </div>
+                </div>
+              }
+              trigger="click"
+              placement="bottomRight"
+            >
+              <Button icon={<SettingOutlined />} type="default">
+                Settings
+              </Button>
+            </Popover>
+
             <Button
               type="primary"
               icon={<UnorderedListOutlined />}
               onClick={() => setIsPlaylistOpen(true)}
               style={{ backgroundColor: "#0284c7" }}
             >
-              My Playlist <Badge count={playlist.length} overflowCount={99} style={{ backgroundColor: "#818cf8", marginLeft: 6 }} />
+              {t.myPlaylist} <Badge count={playlist.length} overflowCount={99} style={{ backgroundColor: "#818cf8", marginLeft: 6 }} />
             </Button>
-
-            <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Artists Shard:</span>
-            <Select
-              className={styles.shardSelectHeader}
-              value={selectedShard}
-              onChange={(val) => setSelectedShard(val)}
-              options={masterIndex.map((entry) => ({
-                value: entry.shard as string,
-                label: `${entry.start_artist} — ${entry.end_artist}`,
-              }))}
-            />
           </div>
         </header>
 
@@ -450,7 +540,7 @@ export default function Home() {
             {/* Hero Brand Onboarding */}
             <HeroBanner />
 
-            {/* Toolbar Header Bar */}
+            {/* Clean & Streamlined Toolbar Header Bar */}
             <div className={styles.tableHeaderBar}>
               <div className={styles.tableTitleInfo}>
                 <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>Library Tracks</h2>
@@ -458,71 +548,61 @@ export default function Home() {
               </div>
 
               <div className={styles.toolbarRight}>
+                <div className={styles.searchBox}>
+                  <Input
+                    placeholder={t.searchPlaceholder}
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    onChange={(e) => handleSearch(e.target.value)}
+                  />
+                </div>
+
+                <Select
+                  value={selectedGenre}
+                  style={{ width: 130 }}
+                  onChange={(val) => setSelectedGenre(val)}
+                  options={[
+                    { value: "ALL", label: t.allGenres },
+                    { value: "Pop", label: t.pop },
+                    { value: "Rock", label: t.rock },
+                    { value: "Country", label: t.country },
+                    { value: "Jazz", label: t.jazz },
+                    { value: "Classical", label: t.classical },
+                    { value: "Electronic", label: t.electronic },
+                    { value: "Soundtrack", label: t.soundtrack },
+                  ]}
+                />
+
+                <Select
+                  value={selectedCountry}
+                  style={{ width: 140 }}
+                  onChange={(val) => setSelectedCountry(val)}
+                  options={[
+                    { value: "ALL", label: t.globalAll },
+                    { value: "US_EU", label: t.usEu },
+                    { value: "ASIA", label: t.asia },
+                  ]}
+                />
+
                 <Button
                   type={showFavoritesOnly ? "primary" : "default"}
                   danger={showFavoritesOnly}
                   icon={showFavoritesOnly ? <HeartFilled /> : <HeartOutlined />}
                   onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                 >
-                  {showFavoritesOnly ? "Favorites Only" : "All Songs"}
+                  {showFavoritesOnly ? t.favoritesOnly : t.allTracks}
                 </Button>
-
-                <Select
-                  value={selectedGenre}
-                  style={{ width: 140 }}
-                  onChange={(val) => setSelectedGenre(val)}
-                  options={[
-                    { value: "ALL", label: "🎵 All Genres" },
-                    { value: "Pop", label: "🎤 Pop" },
-                    { value: "Rock", label: "🎸 Rock" },
-                    { value: "Country", label: "🎻 Country" },
-                    { value: "Jazz", label: "🎷 Jazz & Blues" },
-                    { value: "Classical", label: "🎹 Classical" },
-                    { value: "Electronic", label: "🎧 Electronic" },
-                    { value: "Soundtrack", label: "🎬 Soundtrack" },
-                  ]}
-                />
-
-                <Select
-                  value={selectedCountry}
-                  style={{ width: 150 }}
-                  onChange={(val) => setSelectedCountry(val)}
-                  options={[
-                    { value: "ALL", label: "🌐 Global / All" },
-                    { value: "US_EU", label: "🇺🇸 US & Europe" },
-                    { value: "ASIA", label: "🌏 Asia & Anime" },
-                  ]}
-                />
-
-                <Select
-                  defaultValue="artist_asc"
-                  style={{ width: 150 }}
-                  onChange={(val) => setSortBy(val)}
-                  options={[
-                    { value: "artist_asc", label: "Artist (A-Z)" },
-                    { value: "artist_desc", label: "Artist (Z-A)" },
-                    { value: "title_asc", label: "Title (A-Z)" },
-                    { value: "title_desc", label: "Title (Z-A)" },
-                  ]}
-                />
 
                 <Segmented
                   options={[
-                    { value: "table", icon: <BarsOutlined /> },
-                    { value: "grid", icon: <AppstoreOutlined /> },
+                    { value: "table", icon: <BarsOutlined />, tooltip: t.tableMode },
+                    { value: "grid", icon: <AppstoreOutlined />, tooltip: t.gridMode },
+                    { value: "compact", icon: <MenuOutlined />, tooltip: t.compactMode },
+                    { value: "vinyl", icon: <CompassOutlined />, tooltip: t.vinylMode },
                   ]}
                   value={viewMode}
-                  onChange={(val) => setViewMode(val as "table" | "grid")}
+                  onChange={(val) => setViewMode(val as "table" | "grid" | "compact" | "vinyl")}
                 />
-
-                <div className={styles.searchBox}>
-                  <Input
-                    placeholder="Search title or artist..."
-                    prefix={<SearchOutlined />}
-                    allowClear
-                    onChange={(e) => handleSearch(e.target.value)}
-                  />
-                </div>
               </div>
             </div>
 
@@ -539,173 +619,27 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Content Display (Grid Cards / Table View) */}
+            {/* Modular Track List View Component (Table / Grid / Compact / Vinyl) */}
             {loading ? (
               <div className={styles.tableContainer} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Spin tip="Mounting SQLite Shard via Web Worker..." size="large" />
               </div>
-            ) : viewMode === "grid" ? (
-              <div className={styles.gridContainerWrapper}>
-                <VirtuosoGrid
-                  style={{ height: "100%", width: "100%" }}
-                  totalCount={processedTracks.length}
-                  listClassName={styles.gridListContainer}
-                  itemClassName={styles.gridItemWrapper}
-                  itemContent={(index) => {
-                    const track = processedTracks[index];
-                    const isSelected = currentTrack?.id === track.id;
-                    const inPlaylist = playlist.some((t) => t.id === track.id);
-                    return (
-                      <div
-                        className={`${styles.gridCard} ${isSelected ? styles.gridCardActive : ""}`}
-                        onClick={() => playTrack(track)}
-                      >
-                        <div className={styles.cardHeaderRow}>
-                          <span className={styles.cardNumberBadge}>No. #{index + 1}</span>
-                          <span className={styles.formatBadge}>MIDI (.mid)</span>
-                        </div>
-                        <div className={styles.gridCardTitle}>{track.title}</div>
-                        <div className={styles.gridCardArtist}>{track.artist}</div>
-                        
-                        <div className={styles.cardMetaRow}>
-                          <span><ClockCircleOutlined /> 3:24</span>
-                          <span>Audio Track</span>
-                        </div>
-
-                        <div className={styles.gridCardFooter}>
-                          <Button
-                            type="primary"
-                            shape="circle"
-                            size="small"
-                            icon={isSelected && isPlaying ? <PauseCircleFilled /> : <PlayCircleFilled />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isSelected) {
-                                togglePlay();
-                              } else {
-                                playTrack(track);
-                              }
-                            }}
-                          />
-
-                          <div>
-                            <Tooltip title="Open Stage Visualizer (Synthesia, Sheet, Piano)">
-                              <Button
-                                type="text"
-                                icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setStageTrack(track);
-                                  setIsStageOpen(true);
-                                }}
-                              />
-                            </Tooltip>
-                            <Tooltip title={inPlaylist ? "Remove from Playlist" : "Add to Playlist"}>
-                              <Button
-                                type="text"
-                                icon={
-                                  inPlaylist ? (
-                                    <HeartFilled style={{ color: "#ef4444" }} />
-                                  ) : (
-                                    <HeartOutlined style={{ color: "#94a3b8" }} />
-                                  )
-                                }
-                                onClick={(e) => togglePlaylistTrack(e, track)}
-                              />
-                            </Tooltip>
-                            <Tooltip title="Download .mid file">
-                              <Button
-                                type="text"
-                                icon={<DownloadOutlined style={{ color: "#94a3b8" }} />}
-                                onClick={(e) => downloadMidiFile(e, track)}
-                              />
-                            </Tooltip>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-              </div>
             ) : (
-              <div className={styles.tableContainer}>
-                <Virtuoso
-                  style={{ height: "100%", width: "100%" }}
-                  totalCount={processedTracks.length}
-                  itemContent={(index) => {
-                    const track = processedTracks[index];
-                    const isSelected = currentTrack?.id === track.id;
-                    const inPlaylist = playlist.some((t) => t.id === track.id);
-                    return (
-                      <div
-                        className={`${styles.tableRow} ${isSelected ? styles.tableRowActive : ""}`}
-                        onClick={() => playTrack(track)}
-                      >
-                        <div className={styles.colNo}>#{index + 1}</div>
-                        <div className={styles.colTitle}>{track.title}</div>
-                        <div className={styles.colArtist}>{track.artist}</div>
-                        <div className={styles.colDuration}>
-                          <ClockCircleOutlined /> 3:24
-                        </div>
-                        <div className={styles.colFormat}>
-                          <span className={styles.formatBadge}>MIDI</span>
-                        </div>
-                        <div className={styles.colAction}>
-                          <Tooltip title="Open Stage Visualizer (Synthesia, Sheet, Piano)">
-                            <Button
-                              type="text"
-                              icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setStageTrack(track);
-                                setIsStageOpen(true);
-                              }}
-                            />
-                          </Tooltip>
-                          <Tooltip title={inPlaylist ? "Remove from Playlist" : "Add to Playlist"}>
-                            <Button
-                              type="text"
-                              icon={
-                                inPlaylist ? (
-                                  <HeartFilled style={{ color: "#ef4444" }} />
-                                ) : (
-                                  <HeartOutlined style={{ color: "#94a3b8" }} />
-                                )
-                              }
-                              onClick={(e) => togglePlaylistTrack(e, track)}
-                            />
-                          </Tooltip>
-                          <Tooltip title="Download .mid file">
-                            <Button
-                              type="text"
-                              icon={<DownloadOutlined style={{ color: "#94a3b8" }} />}
-                              onClick={(e) => downloadMidiFile(e, track)}
-                            />
-                          </Tooltip>
-                          <Button
-                            type="text"
-                            icon={
-                              isSelected && isPlaying ? (
-                                <PauseCircleFilled style={{ color: "#38bdf8", fontSize: 22 }} />
-                              ) : (
-                                <PlayCircleFilled style={{ color: isSelected ? "#38bdf8" : "#64748b", fontSize: 22 }} />
-                              )
-                            }
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isSelected) {
-                                togglePlay();
-                              } else {
-                                playTrack(track);
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-              </div>
+              <TrackListView
+                viewMode={viewMode}
+                tracks={processedTracks}
+                currentTrack={currentTrack}
+                isPlaying={isPlaying}
+                playlist={playlist}
+                playTrack={playTrack}
+                togglePlay={togglePlay}
+                togglePlaylistTrack={togglePlaylistTrack}
+                downloadMidiFile={downloadMidiFile}
+                onOpenStage={(track) => {
+                  setStageTrack(track);
+                  setIsStageOpen(true);
+                }}
+              />
             )}
           </main>
         </div>
@@ -760,110 +694,52 @@ export default function Home() {
           )}
         </Drawer>
 
-        {/* Floating Glass Player Footer */}
-        <footer className={styles.footerPlayer}>
-          <div className={styles.playingInfo}>
-            <SoundOutlined style={{ fontSize: 28, color: "#38bdf8" }} />
-            <div style={{ overflow: "hidden" }}>
-              <div style={{ fontWeight: 600, color: "#f8fafc", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                {currentTrack ? currentTrack.title : "No track selected"}
-              </div>
-              <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
-                {currentTrack ? currentTrack.artist : "Select a track to start playback"}
-              </div>
-            </div>
-          </div>
+        {/* Standalone Footer Player Component */}
+        <FooterPlayer
+          currentTrack={currentTrack}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          totalDuration={totalDuration}
+          volume={volume}
+          isMuted={isMuted}
+          loopMode={loopMode}
+          playlistLength={playlist.length}
+          togglePlay={togglePlay}
+          setLoopMode={setLoopMode}
+          setIsMuted={setIsMuted}
+          setVolume={setVolume}
+          onOpenPlaylist={() => setIsPlaylistOpen(true)}
+          onOpenStage={() => {
+            if (currentTrack) {
+              setStageTrack(currentTrack);
+              setIsStageOpen(true);
+            }
+          }}
+          formatTime={formatTime}
+        />
 
-          <div className={styles.audioControlsCenter}>
-            <div className={styles.buttonRow}>
-              <Tooltip title={loopMode === "one" ? "Repeat One (Active)" : "Repeat Off"}>
-                <Button
-                  type="text"
-                  icon={<RedoOutlined style={{ color: loopMode === "one" ? "#38bdf8" : "#64748b", fontSize: 18 }} />}
-                  onClick={() => setLoopMode(loopMode === "one" ? "off" : "one")}
-                />
-              </Tooltip>
-              <Button
-                type="primary"
-                shape="circle"
-                size="large"
-                icon={isPlaying ? <PauseCircleFilled /> : <PlayCircleFilled />}
-                disabled={!currentTrack}
-                onClick={togglePlay}
-              />
-            </div>
-            <div className={styles.seekRow}>
-              <span className={styles.timeText}>{formatTime(currentTime)}</span>
-              <Slider
-                style={{ flex: 1, margin: 0 }}
-                min={0}
-                max={totalDuration || 100}
-                value={currentTime}
-                tooltip={{ formatter: (val) => formatTime(val || 0) }}
-                disabled={!currentTrack}
-              />
-              <span className={styles.timeText}>{formatTime(totalDuration)}</span>
-            </div>
-          </div>
-
-          <div className={styles.audioControlsRight}>
-            <Tooltip title="Open Stage Visualizer">
-              <Button
-                type="default"
-                icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
-                disabled={!currentTrack}
-                onClick={() => {
-                  if (currentTrack) {
-                    setStageTrack(currentTrack);
-                    setIsStageOpen(true);
-                  }
-                }}
-              >
-                Stage Mode
-              </Button>
-            </Tooltip>
-
-            <Button
-              type="primary"
-              ghost
-              size="small"
-              icon={<UnorderedListOutlined />}
-              onClick={() => setIsPlaylistOpen(true)}
-            >
-              Playlist ({playlist.length})
-            </Button>
-            <Button
-              type="text"
-              icon={
-                isMuted ? (
-                  <MutedOutlined style={{ color: "#ef4444", fontSize: 18 }} />
-                ) : (
-                  <SoundOutlined style={{ color: "#38bdf8", fontSize: 18 }} />
-                )
-              }
-              onClick={() => setIsMuted(!isMuted)}
-            />
-            <Slider
-              className={styles.volumeSlider}
-              min={0}
-              max={100}
-              value={isMuted ? 0 : volume}
-              onChange={(val) => {
-                setVolume(val);
-                if (val > 0) setIsMuted(false);
-              }}
-            />
-          </div>
-        </footer>
-
-        {/* Multi-Mode Stage Visualizer Modal */}
+        {/* Multi-Mode Stage Visualizer Modal (Synced with Main Player) */}
         <MultiModeVisualizerModal
           open={isStageOpen}
           onClose={() => setIsStageOpen(false)}
-          track={stageTrack}
+          track={stageTrack || currentTrack}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          totalDuration={totalDuration}
+          activeMidiNote={activeMidiNote}
+          togglePlay={togglePlay}
           getMidiUrl={getMidiUrl}
+          formatTime={formatTime}
         />
       </div>
     </ConfigProvider>
+  );
+}
+
+export default function Home() {
+  return (
+    <AppSettingsProvider>
+      <MainStudioContent />
+    </AppSettingsProvider>
   );
 }
