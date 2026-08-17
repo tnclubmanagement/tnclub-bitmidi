@@ -55,7 +55,16 @@ export default function FooterPlayer({
   return (
     <footer className={styles.footerPlayer}>
       <div className={styles.playingInfo}>
-        <SoundOutlined style={{ fontSize: 28, color: "#38bdf8" }} />
+        {isPlaying ? (
+          <div className={styles.equalizerWave} style={{ height: 24, gap: 4 }}>
+            <span className={styles.equalizerBar} style={{ width: 4 }}></span>
+            <span className={styles.equalizerBar} style={{ width: 4 }}></span>
+            <span className={styles.equalizerBar} style={{ width: 4 }}></span>
+            <span className={styles.equalizerBar} style={{ width: 4 }}></span>
+          </div>
+        ) : (
+          <SoundOutlined style={{ fontSize: 28, color: "#38bdf8" }} />
+        )}
         <div style={{ overflow: "hidden" }}>
           <div style={{ fontWeight: 600, color: "#f8fafc", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
             {currentTrack ? currentTrack.title : t.noTrackSelected}

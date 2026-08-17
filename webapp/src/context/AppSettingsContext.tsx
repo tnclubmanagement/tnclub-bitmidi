@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 export type ThemeMode = "dark" | "light" | "neon" | "retro";
 export type Language = "vi" | "en" | "ja";
@@ -152,19 +152,18 @@ type AppSettingsContextType = {
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
 
 export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("tn_app_theme") as ThemeMode) || "dark";
-    }
-    return "dark";
-  });
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("dark");
+  const [language, setLanguageState] = useState<Language>("vi");
 
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("tn_app_lang") as Language) || "vi";
-    }
-    return "vi";
-  });
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("tn_app_theme") as ThemeMode;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (savedTheme) setThemeModeState(savedTheme);
+
+    const savedLang = localStorage.getItem("tn_app_lang") as Language;
+     
+    if (savedLang) setLanguageState(savedLang);
+  }, []);
 
   const setThemeMode = (mode: ThemeMode) => {
     setThemeModeState(mode);

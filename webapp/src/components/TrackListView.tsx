@@ -32,15 +32,26 @@ export type TrackItemProps = {
   onOpenStage: (track: TrackRecord) => void;
 };
 
+function EqualizerWave() {
+  return (
+    <div className={styles.equalizerWave} title="Playing Audio">
+      <span className={styles.equalizerBar}></span>
+      <span className={styles.equalizerBar}></span>
+      <span className={styles.equalizerBar}></span>
+      <span className={styles.equalizerBar}></span>
+    </div>
+  );
+}
+
 // 1. Table Row Strategy
-function TableRowItem({ index, track, isSelected, inPlaylist, playTrack, togglePlaylistTrack, downloadMidiFile, onOpenStage }: TrackItemProps) {
+function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, playTrack, togglePlaylistTrack, downloadMidiFile, onOpenStage }: TrackItemProps) {
   const { t } = useAppSettings();
   return (
     <div
       className={`${styles.tableRow} ${isSelected ? styles.tableRowActive : ""}`}
       onClick={() => playTrack(track)}
     >
-      <div className={styles.colNo}>#{index + 1}</div>
+      <div className={styles.colNo}>{isSelected && isPlaying ? <EqualizerWave /> : `#${index + 1}`}</div>
       <div className={styles.colTitle}>{track.title}</div>
       <div className={styles.colArtist}>{track.artist}</div>
       <div className={styles.colDuration}>
@@ -86,7 +97,9 @@ function CompactRowItem({ index, track, isSelected, isPlaying, inPlaylist, playT
       className={`${styles.compactRow} ${isSelected ? styles.compactRowActive : ""}`}
       onClick={() => playTrack(track)}
     >
-      <div style={{ width: 45, fontWeight: 700, color: "#64748b" }}>#{index + 1}</div>
+      <div style={{ width: 45, fontWeight: 700, color: "#64748b" }}>
+        {isSelected && isPlaying ? <EqualizerWave /> : `#${index + 1}`}
+      </div>
       <div style={{ flex: 2, fontWeight: 600, color: "#f8fafc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {track.title}
       </div>
@@ -136,7 +149,9 @@ function GridCardItem({ index, track, isSelected, isPlaying, inPlaylist, playTra
       onClick={() => playTrack(track)}
     >
       <div className={styles.cardHeaderRow}>
-        <span className={styles.cardNumberBadge}>No. #{index + 1}</span>
+        <span className={styles.cardNumberBadge}>
+          {isSelected && isPlaying ? <EqualizerWave /> : `No. #${index + 1}`}
+        </span>
         <span className={styles.formatBadge}>MIDI (.mid)</span>
       </div>
       <div className={styles.gridCardTitle}>{track.title}</div>
@@ -208,8 +223,12 @@ function VinylCardItem({ track, isSelected, isPlaying, inPlaylist, playTrack, to
             {track.artist}
           </div>
         </div>
-        <div className={`${styles.vinylDisc} ${isSelected && isPlaying ? styles.vinylDiscSpin : ""}`}>
-          <div className={styles.vinylCenterLabel}>MIDI</div>
+        <div className={styles.vinylDiscContainer}>
+          <div className={`${styles.vinylDisc} ${isSelected && isPlaying ? styles.vinylDiscSpin : ""}`}>
+            <div className={styles.vinylCenterLabel}>
+              {isSelected && isPlaying ? <EqualizerWave /> : "MIDI"}
+            </div>
+          </div>
         </div>
       </div>
 

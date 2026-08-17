@@ -622,7 +622,7 @@ function MainStudioContent() {
             {/* Modular Track List View Component (Table / Grid / Compact / Vinyl) */}
             {loading ? (
               <div className={styles.tableContainer} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Spin tip="Mounting SQLite Shard via Web Worker..." size="large" />
+                <Spin description="Mounting SQLite Shard via Web Worker..." size="large" />
               </div>
             ) : (
               <TrackListView
@@ -728,6 +728,7 @@ function MainStudioContent() {
           totalDuration={totalDuration}
           activeMidiNote={activeMidiNote}
           togglePlay={togglePlay}
+          playTrack={playTrack}
           getMidiUrl={getMidiUrl}
           formatTime={formatTime}
         />

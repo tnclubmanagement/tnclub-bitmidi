@@ -21,6 +21,7 @@ type Props = {
   totalDuration: number;
   activeMidiNote: number | null;
   togglePlay: () => void;
+  playTrack: (track: TrackRecord) => void;
   getMidiUrl: (filePath: string) => string;
   formatTime: (sec: number) => string;
 };
@@ -34,12 +35,23 @@ export default function MultiModeVisualizerModal({
   totalDuration,
   activeMidiNote,
   togglePlay,
+  playTrack,
   getMidiUrl,
   formatTime,
 }: Props) {
   const [visMode, setVisMode] = useState<"falling-notes" | "sheet" | "piano-roll">("falling-notes");
   const [midiData, setMidiData] = useState<Midi | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const handleTogglePlay = () => {
+    if (isPlaying) {
+      togglePlay();
+    } else if (track) {
+      playTrack(track);
+    } else {
+      togglePlay();
+    }
+  };
 
   // Load and parse MIDI file structure for Visualizer rendering
   useEffect(() => {
@@ -268,13 +280,14 @@ export default function MultiModeVisualizerModal({
   return (
     <Modal
       title={
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingRight: 32 }}>
+        <div id="stage-modal-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingRight: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <CustomerServiceOutlined style={{ color: "#38bdf8", fontSize: 22 }} />
-            <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>{track?.title} — Stage Visualizer</span>
+            <span id="stage-modal-title" style={{ fontWeight: 700, fontSize: "1.1rem" }}>{track?.title || "No Track Selected"} — Stage Visualizer</span>
           </div>
 
           <Segmented
+            id="stage-vis-mode-segmented"
             options={[
               { value: "falling-notes", label: "🌊 Falling Notes (Synthesia)" },
               { value: "sheet", label: "🎼 Sheet Music A4" },
@@ -289,21 +302,23 @@ export default function MultiModeVisualizerModal({
       onCancel={onClose}
       width={940}
       footer={
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
+        <div id="stage-modal-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Button
+              id="stage-play-pause-btn"
               type="primary"
               shape="circle"
               size="large"
               icon={isPlaying ? <PauseCircleFilled /> : <PlayCircleFilled />}
-              onClick={togglePlay}
+              onClick={handleTogglePlay}
             />
-            <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
+            <span id="stage-time-display" style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
               {formatTime(currentTime)} / {formatTime(totalDuration)}
             </span>
           </div>
 
           <Slider
+            id="stage-progress-slider"
             style={{ flex: 1, margin: "0 24px" }}
             min={0}
             max={totalDuration || 100}
@@ -311,20 +326,20 @@ export default function MultiModeVisualizerModal({
             tooltip={{ formatter: (v) => formatTime(v || 0) }}
           />
 
-          <Button icon={<DownloadOutlined />} onClick={() => window.print()}>
+          <Button id="stage-export-btn" icon={<DownloadOutlined />} onClick={() => window.print()}>
             Print / Export Sheet
           </Button>
         </div>
       }
     >
-      <div style={{ borderRadius: 12, overflow: "hidden", background: "#090d16", marginTop: 16 }}>
+      <div id="stage-vis-container" style={{ borderRadius: 12, overflow: "hidden", background: "#090d16", marginTop: 16 }}>
         {visMode === "piano-roll" ? (
-          <div style={{ padding: 24 }}>
+          <div id="stage-piano-roll-container" style={{ padding: 24 }}>
             <PianoRollVisualizer activeNote={activeMidiNote} />
           </div>
         ) : (
-          <div style={{ width: "100%", height: visMode === "sheet" ? 540 : 380, position: "relative" }}>
-            <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+          <div id="stage-canvas-container" style={{ width: "100%", height: visMode === "sheet" ? 540 : 380, position: "relative" }}>
+            <canvas id="stage-visualizer-canvas" ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
           </div>
         )}
       </div>
