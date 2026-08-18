@@ -501,6 +501,13 @@
   border-color: rgba(56, 189, 248, 0.3);
 }
 
+.alphaBtn:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
 .alphaBtnActive {
   background: #0284c7 !important;
   color: #ffffff !important;

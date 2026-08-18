@@ -25,12 +25,31 @@ export type TrackItemProps = {
   isSelected: boolean;
   isPlaying: boolean;
   inPlaylist: boolean;
+  searchQuery?: string;
   playTrack: (track: TrackRecord) => void;
   togglePlay: () => void;
   togglePlaylistTrack: (e: React.MouseEvent, track: TrackRecord) => void;
   downloadMidiFile: (e: React.MouseEvent, track: TrackRecord) => void;
   onOpenStage: (track: TrackRecord) => void;
 };
+
+function highlightText(text: string, query?: string) {
+  if (!query || !query.trim()) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} style={{ backgroundColor: "#38bdf8", color: "#030712", padding: "0 2px", borderRadius: 3, fontWeight: 700 }}>
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
 
 function EqualizerWave() {
   return (
@@ -44,7 +63,7 @@ function EqualizerWave() {
 }
 
 // 1. Table Row Strategy
-function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, playTrack, togglePlaylistTrack, downloadMidiFile, onOpenStage }: TrackItemProps) {
+function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, searchQuery, playTrack, togglePlaylistTrack, downloadMidiFile, onOpenStage }: TrackItemProps) {
   const { t } = useAppSettings();
   return (
     <div
@@ -52,13 +71,10 @@ function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, playTra
       onClick={() => playTrack(track)}
     >
       <div className={styles.colNo}>{isSelected && isPlaying ? <EqualizerWave /> : `#${index + 1}`}</div>
-      <div className={styles.colTitle}>{track.title}</div>
-      <div className={styles.colArtist}>{track.artist}</div>
+      <div className={styles.colTitle}>{highlightText(track.title, searchQuery)}</div>
+      <div className={styles.colArtist}>{highlightText(track.artist, searchQuery)}</div>
       <div className={styles.colDuration}>
         <ClockCircleOutlined /> 3:24
-      </div>
-      <div className={styles.colFormat}>
-        <span className={styles.formatBadge}>MIDI</span>
       </div>
       <div className={styles.colAction}>
         <Tooltip title={t.openStageVisualizer}>
@@ -294,6 +310,7 @@ type TrackListViewProps = {
   currentTrack: TrackRecord | null;
   isPlaying: boolean;
   playlist: TrackRecord[];
+  searchQuery?: string;
   playTrack: (track: TrackRecord) => void;
   togglePlay: () => void;
   togglePlaylistTrack: (e: React.MouseEvent, track: TrackRecord) => void;
@@ -307,6 +324,7 @@ export default function TrackListView({
   currentTrack,
   isPlaying,
   playlist,
+  searchQuery,
   playTrack,
   togglePlay,
   togglePlaylistTrack,
@@ -330,6 +348,7 @@ export default function TrackListView({
         isSelected={isSelected}
         isPlaying={isPlaying}
         inPlaylist={inPlaylist}
+        searchQuery={searchQuery}
         playTrack={playTrack}
         togglePlay={togglePlay}
         togglePlaylistTrack={togglePlaylistTrack}
