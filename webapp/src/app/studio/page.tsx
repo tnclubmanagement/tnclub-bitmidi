@@ -40,6 +40,12 @@ function MainStudioContent() {
   const [sortBy] = useState<string>("artist_asc");
   const [viewMode, setViewMode] = useState<"table" | "grid" | "compact" | "vinyl">("table");
   const [loading, setLoading] = useState<boolean>(true);
+  const [enabledInstruments, setEnabledInstruments] = useState<Record<string, boolean>>({
+    piano: true,
+    bass: true,
+    strings: false,
+    drums: false,
+  });
 
   // Dynamic Theme Algorithm Selector & Custom Token Palette
   const getAntdTheme = () => {
@@ -282,7 +288,7 @@ function MainStudioContent() {
     document.body.removeChild(link);
   };
 
-  const clearActiveNotes = () => {
+  const pausePlayback = () => {
     activeTimeoutsRef.current.forEach((id) => clearTimeout(id));
     activeTimeoutsRef.current = [];
     if (playbackTimerRef.current) {
@@ -290,10 +296,14 @@ function MainStudioContent() {
       playbackTimerRef.current = null;
     }
     setActiveMidiNote(null);
-    setCurrentTime(0);
     if (soundfontRef.current) {
       soundfontRef.current.stop();
     }
+  };
+
+  const clearActiveNotes = () => {
+    pausePlayback();
+    setCurrentTime(0);
   };
 
   const initSoundfont = async () => {
@@ -351,18 +361,53 @@ function MainStudioContent() {
       setAudioStatus("Playing MIDI Audio...");
       setIsPlaying(true);
 
-      // Start Time Updater
+      // High-Precision Time Sync Engine (60FPS Frame Sync)
+      const initialCurrentTime = currentTime;
+      let startTs = 0;
       playbackTimerRef.current = window.setInterval(() => {
-        setCurrentTime((prev) => {
-          const next = prev + 0.2;
-          return next <= midi.duration ? next : midi.duration;
-        });
-      }, 200);
+        if (!startTs) startTs = Date.now() - initialCurrentTime * 1000;
+        const elapsedSec = (Date.now() - startTs) / 1000;
+        if (elapsedSec <= midi.duration) {
+          setCurrentTime(elapsedSec);
+        } else {
+          setCurrentTime(midi.duration);
+        }
+      }, 16);
 
-      // Schedule notes with Volume Control
+      // Helper: Classify Instrument Type
+      const getInstType = (channel: number, name: string = "", program: number = 0) => {
+        if (channel === 9 || channel === 10) return "drums";
+        const nameLower = name.toLowerCase();
+        if (nameLower.includes("bass") || (program >= 32 && program <= 39)) return "bass";
+        if (
+          nameLower.includes("string") ||
+          nameLower.includes("brass") ||
+          nameLower.includes("pad") ||
+          nameLower.includes("guitar") ||
+          nameLower.includes("synth") ||
+          nameLower.includes("organ") ||
+          nameLower.includes("flute") ||
+          nameLower.includes("sax") ||
+          (program >= 24 && program <= 31) ||
+          (program >= 40 && program <= 55) ||
+          (program >= 56 && program <= 79) ||
+          (program >= 80 && program <= 103)
+        ) {
+          return "strings";
+        }
+        return "piano";
+      };
+
+      // Schedule notes with Volume & Instrument Filter Control
       const targetVolume = isMuted ? 0 : volume / 100;
 
       midi.tracks.forEach((t) => {
+        const programNumber = t.instrument?.number || 0;
+        const instType = getInstType(t.channel || 0, t.name || "", programNumber);
+        
+        // Mute or play audio matching the user's enabledInstruments toggle
+        if (!enabledInstruments[instType]) return;
+
         t.notes.forEach((note) => {
           const delayMs = note.time * 1000;
           const timeoutId = window.setTimeout(() => {
@@ -406,7 +451,7 @@ function MainStudioContent() {
 
   const togglePlay = () => {
     if (isPlaying) {
-      clearActiveNotes();
+      pausePlayback();
       setIsPlaying(false);
       setAudioStatus("Paused");
     } else if (currentTrack) {
@@ -784,6 +829,8 @@ function MainStudioContent() {
           currentTime={currentTime}
           totalDuration={totalDuration}
           activeMidiNote={activeMidiNote}
+          enabledInstruments={enabledInstruments}
+          setEnabledInstruments={setEnabledInstruments}
           togglePlay={togglePlay}
           playTrack={playTrack}
           getMidiUrl={getMidiUrl}
