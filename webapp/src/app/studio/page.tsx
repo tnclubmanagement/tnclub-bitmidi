@@ -413,7 +413,7 @@ function MainStudioContent() {
       midi.tracks.forEach((t) => {
         const programNumber = t.instrument?.number || 0;
         const instType = getInstType(t.channel || 0, t.name || "", programNumber);
-        
+
         t.notes.forEach((note) => {
           const delayMs = (note.time - currentTime) * 1000;
           if (delayMs < 0) return; // Skip notes in the past
@@ -550,7 +550,7 @@ function MainStudioContent() {
         const fullText = `${t.artist} ${t.title} ${t.file_path}`.toLowerCase();
         const hasAsianChars = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf\uac00-\ud7af]/.test(`${t.artist} ${t.title}`);
         const isAsiaKeywords = fullText.includes("japan") || fullText.includes("korea") || fullText.includes("china") || fullText.includes("vietnam") || fullText.includes("anime") || fullText.includes("jpop") || fullText.includes("kpop");
-        
+
         if (selectedCountry === "ASIA") {
           return hasAsianChars || isAsiaKeywords;
         }

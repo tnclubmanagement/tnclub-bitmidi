@@ -15,16 +15,16 @@ import {
   PauseCircleOutlined,
   SlidersOutlined,
   AppstoreOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
-import { Button, Tag, Space, Spin } from "antd";
+import { Button, Tag, Space, Spin, Popover, Select } from "antd";
+import { AppSettingsProvider, useAppSettings, ThemeMode, Language } from "@/context/AppSettingsContext";
+import { AudioParticleCanvas } from "@/components/AudioParticleCanvas";
 import styles from "./landing/landing.module.css";
 
-export default function RootLandingPage() {
+function MainLandingContent() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPlayingDemo, setIsPlayingDemo] = useState(false);
-  const [promptText, setPromptText] = useState("Soạn một bản synthwave sôi động phong cách Cyberpunk 2077");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationOutput, setGenerationOutput] = useState<string | null>(null);
 
   // Scroll Reveal Observer
   useEffect(() => {
@@ -135,15 +135,26 @@ export default function RootLandingPage() {
     };
   }, []);
 
+  const { themeMode, setThemeMode, language, setLanguage, t } = useAppSettings();
+  const [promptText, setPromptText] = useState(t.defaultPromptText);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationOutput, setGenerationOutput] = useState<string | null>(null);
+
+  // Sync promptText when language changes
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setPromptText(t.defaultPromptText);
+      setGenerationOutput((prev) => (prev ? t.aiOutputSuccess : null));
+    });
+  }, [language, t.defaultPromptText, t.aiOutputSuccess]);
+
   const handleSimulateAiGeneration = () => {
     if (!promptText.trim()) return;
     setIsGenerating(true);
     setGenerationOutput(null);
     setTimeout(() => {
       setIsGenerating(false);
-      setGenerationOutput(
-        "✨ AI đã khởi tạo thành công bản MIDI 128 BPM | Tone C Minor | 4 Tracks: Lead Synth, Bassline, Arpeggio, Drums"
-      );
+      setGenerationOutput(t.aiOutputSuccess);
     }, 2000);
   };
 
@@ -161,16 +172,65 @@ export default function RootLandingPage() {
         </div>
         <div className={styles.navLinks}>
           <a href="#features" className={styles.navLink}>
-            Tính Năng
+            {t.features}
           </a>
           <a href="#ai-engine" className={styles.navLink}>
-            AI Engine 2026
+            {t.aiEngine}
           </a>
+          <Link href="/credits" className={styles.navLink}>
+            {t.credits}
+          </Link>
           <Link href="/api-docs" className={styles.navLink}>
             API Docs
           </Link>
+
+          {/* Quick Settings Popover on Landing Page */}
+          <Popover
+            content={
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 220, padding: "6px 0" }}>
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>{t.themeTitle}</div>
+                  <Select
+                    value={themeMode}
+                    style={{ width: "100%" }}
+                    onChange={(val) => setThemeMode(val as ThemeMode)}
+                    options={[
+                      { value: "dark", label: "🌙 Dark Mode" },
+                      { value: "light", label: "☀️ Light Mode" },
+                      { value: "neon", label: "⚡ Neon Cyber" },
+                      { value: "retro", label: "📻 Retro Gold" },
+                    ]}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>{t.langTitle}</div>
+                  <Select
+                    value={language}
+                    style={{ width: "100%" }}
+                    onChange={(val) => setLanguage(val as Language)}
+                    options={[
+                      { value: "vi", label: "🇻🇳 Tiếng Việt" },
+                      { value: "en", label: "🇺🇸 English" },
+                      { value: "ja", label: "🇯🇵 日本語" },
+                    ]}
+                  />
+                </div>
+              </div>
+            }
+            trigger="click"
+            placement="bottomRight"
+          >
+            <Button
+              icon={<SettingOutlined />}
+              className={styles.settingsBtn}
+            >
+              Settings
+            </Button>
+          </Popover>
+
           <Link href="/studio" className={styles.ctaBtnPrimary}>
-            Vào Web Studio <RightOutlined />
+            {t.enterStudio} <RightOutlined />
           </Link>
         </div>
       </nav>
@@ -181,23 +241,24 @@ export default function RootLandingPage() {
           <StarOutlined /> AI-Powered Web Audio Engine • 2026 Standard
         </div>
         <h1 className={styles.heroTitle}>
-          Kỷ Nguyên <span className={styles.gradientText}>AI & Nhạc MIDI Tốc Độ Cao</span> Ngay Trên Trình Duyệt
+          {t.heroTitle}
         </h1>
         <p className={styles.heroSubtitle}>
-          Trải nghiệm kho nhạc 17,000+ tracks MIDI siêu nhẹ với SQLite Range Queries 0ms latency, kết hợp bộ tổng hợp âm SoundFont thế hệ mới và Trợ lý AI Remix thông minh.
+          {t.heroSubtitle}
         </p>
 
         <div className={styles.heroActions}>
           <Link href="/studio" className={styles.ctaBtnPrimary} style={{ padding: "0.85rem 2rem", fontSize: "1.05rem" }}>
-            Khám Phá Studio Ngay <RightOutlined />
+            {t.exploreStudio} <RightOutlined />
           </Link>
           <a href="#demo" className={styles.ctaBtnSecondary}>
-            <PlayCircleOutlined /> Nghe Demo Trực Tiếp
+            <PlayCircleOutlined /> {t.listenDemo}
           </a>
         </div>
 
         {/* Dynamic 3D Neural Canvas Box */}
         <div className={styles.visualizerHeroBox}>
+          <AudioParticleCanvas themeMode={themeMode} />
           <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
           <div className={styles.canvasOverlay}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -219,9 +280,9 @@ export default function RootLandingPage() {
       {/* Live Demo Showcase Section */}
       <section id="demo" className={`${styles.sectionContainer} ${styles.scrollRevealSection}`}>
         <div className={styles.sectionHeader}>
-          <div className={styles.sectionTag}>Trải nghiệm âm thanh</div>
+          <div className={styles.sectionTag}>{t.demoTag}</div>
           <h2 className={styles.sectionTitle}>
-            Live SoundFont Synthesizer & Audio Stage
+            {t.demoTitle}
           </h2>
         </div>
 
@@ -232,7 +293,7 @@ export default function RootLandingPage() {
                 🎼 Queen — Bohemian Rhapsody (MIDI Remastered)
               </div>
               <div style={{ color: "#9ca3af", fontSize: "0.9rem", marginTop: 4 }}>
-                Classical & Rock Ensemble • High-Fidelity Piano SoundFont
+                {t.demoSubtitle}
               </div>
             </div>
             <Button
@@ -266,9 +327,9 @@ export default function RootLandingPage() {
       {/* Bento Grid AI Features Section */}
       <section id="features" className={`${styles.sectionContainer} ${styles.scrollRevealSection}`}>
         <div className={styles.sectionHeader}>
-          <div className={styles.sectionTag}>Tính Năng Đột Phá 2026</div>
+          <div className={styles.sectionTag}>{t.featuresTag}</div>
           <h2 className={styles.sectionTitle}>
-            Sức Mạnh Công Nghệ Hàng Đầu Cho Nhạc Số
+            {t.featuresTitle}
           </h2>
         </div>
 
@@ -278,9 +339,9 @@ export default function RootLandingPage() {
             <div className={styles.bentoIcon}>
               <DatabaseOutlined />
             </div>
-            <h3 className={styles.bentoTitle}>Zero-Server SQLite HTTP Range Queries</h3>
+            <h3 className={styles.bentoTitle}>{t.sqliteTitle}</h3>
             <p className={styles.bentoDesc}>
-              Công nghệ tiên phong giúp truy xuất trực tiếp các khối dữ liệu từ file Database SQLite tĩnh lưu trữ trên Cloud Storage mà không cần chạy Server Backend. Tốc độ tìm kiếm và lướt danh sách 17,000+ bài hát đạt 0ms latency.
+              {t.sqliteDesc}
             </p>
           </div>
 
@@ -289,9 +350,9 @@ export default function RootLandingPage() {
             <div className={styles.bentoIcon}>
               <AudioOutlined />
             </div>
-            <h3 className={styles.bentoTitle}>SoundFont Piano Studio</h3>
+            <h3 className={styles.bentoTitle}>{t.soundfontTitle}</h3>
             <p className={styles.bentoDesc}>
-              Tích hợp bộ giả lập âm thanh Web Audio API chất lượng cao, đem lại trải nghiệm nghe nhạc MIDI sống động như trên đàn Piano thực thụ.
+              {t.soundfontDesc}
             </p>
           </div>
 
@@ -300,9 +361,9 @@ export default function RootLandingPage() {
             <div className={styles.bentoIcon}>
               <RobotOutlined />
             </div>
-            <h3 className={styles.bentoTitle}>Trợ Lý AI Remix 2026</h3>
+            <h3 className={styles.bentoTitle}>{t.aiAssistantTitle}</h3>
             <p className={styles.bentoDesc}>
-              Phân tích cấu trúc nốt nhạc, phối lại hợp âm và chuyển đổi thể loại nhạc MIDI tự động theo thời gian thực.
+              {t.aiAssistantDesc}
             </p>
           </div>
 
@@ -311,9 +372,9 @@ export default function RootLandingPage() {
             <div className={styles.bentoIcon}>
               <SlidersOutlined />
             </div>
-            <h3 className={styles.bentoTitle}>Multi-Mode Interactive Stage Visualizer</h3>
+            <h3 className={styles.bentoTitle}>{t.visualizerTitle}</h3>
             <p className={styles.bentoDesc}>
-              Hệ thống sân khấu trình diễn đa chế độ (Piano Roll 2D/3D, Vinyl Player, Audio Waves, Neon Matrix), giúp bạn đắm chìm vào từng nốt nhạc.
+              {t.visualizerDesc}
             </p>
           </div>
         </div>
@@ -325,11 +386,11 @@ export default function RootLandingPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <RobotOutlined style={{ fontSize: 28, color: "#c084fc" }} />
             <h3 style={{ fontSize: "1.5rem", fontWeight: 800, margin: 0, color: "#f9fafb" }}>
-              Trải Nghiệm AI MIDI Composer Simulator
+              {t.aiComposerTitle}
             </h3>
           </div>
           <p style={{ color: "#9ca3af", margin: 0, fontSize: "0.95rem" }}>
-            Nhập ý tưởng âm nhạc của bạn, hệ thống AI 2026 sẽ phân tích và gợi ý bản phối MIDI hoàn hảo nhất.
+            {t.aiComposerSubtitle}
           </p>
 
           <div className={styles.promptInputBox}>
@@ -338,7 +399,7 @@ export default function RootLandingPage() {
               className={styles.promptInput}
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
-              placeholder="Nhập mô tả bản nhạc bạn muốn sáng tác..."
+              placeholder={t.aiPromptPlaceholder}
             />
             <Button
               type="primary"
@@ -347,7 +408,7 @@ export default function RootLandingPage() {
               disabled={isGenerating}
               style={{ borderRadius: 12, background: "linear-gradient(135deg, #a855f7, #0284c7)", border: "none" }}
             >
-              {isGenerating ? "AI Đang Soạn..." : "Tạo Bản Phối AI"}
+              {isGenerating ? t.aiGenerating : t.aiGenerateBtn}
             </Button>
           </div>
 
@@ -378,19 +439,19 @@ export default function RootLandingPage() {
         <div className={styles.statsGrid}>
           <div>
             <div className={styles.statNumber}>17,000+</div>
-            <div className={styles.statLabel}>Bài Hát MIDI</div>
+            <div className={styles.statLabel}>{t.statTracks}</div>
           </div>
           <div>
             <div className={styles.statNumber}>0 ms</div>
-            <div className={styles.statLabel}>Server Delay (Client-Side)</div>
+            <div className={styles.statLabel}>{t.statLatency}</div>
           </div>
           <div>
             <div className={styles.statNumber}>100%</div>
-            <div className={styles.statLabel}>Bảo Mật & Riêng Tư</div>
+            <div className={styles.statLabel}>{t.statSecurity}</div>
           </div>
           <div>
             <div className={styles.statNumber}>2026</div>
-            <div className={styles.statLabel}>Chuẩn AI Web Audio</div>
+            <div className={styles.statLabel}>{t.statAudioStandard}</div>
           </div>
         </div>
       </section>
@@ -400,12 +461,19 @@ export default function RootLandingPage() {
         <div style={{ marginBottom: 20 }}>
           <Space size="large">
             <Link href="/studio" style={{ color: "#38bdf8", fontWeight: 600 }}>
-              Mở Web Studio App <AppstoreOutlined />
+              {t.enterStudio} <AppstoreOutlined />
             </Link>
           </Space>
         </div>
-        <div>© 2026 TN Web MIDI Studio • Crafted for the AI Era.</div>
       </footer>
     </div>
+  );
+}
+
+export default function RootLandingPage() {
+  return (
+    <AppSettingsProvider>
+      <MainLandingContent />
+    </AppSettingsProvider>
   );
 }

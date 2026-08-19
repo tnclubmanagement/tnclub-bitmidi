@@ -1,4 +1,7 @@
 .landingContainer {
+  --settings-btn-bg: rgba(255, 255, 255, 0.08);
+  --settings-btn-color: #f8fafc;
+  --settings-btn-border: rgba(255, 255, 255, 0.2);
   min-height: 100vh;
   background-color: #030712;
   color: #f3f4f6;
@@ -6,6 +9,130 @@
   overflow-x: hidden;
   position: relative;
   scroll-behavior: smooth;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.themeLight {
+  --settings-btn-bg: #ffffff;
+  --settings-btn-color: #0f172a;
+  --settings-btn-border: #cbd5e1;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.themeLight .navbar {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+
+.themeLight .navLink {
+  color: #475569 !important;
+}
+
+.themeLight .navLink:hover {
+  color: #0284c7 !important;
+}
+
+.themeLight .heroSubtitle,
+.themeLight .bentoDesc,
+.themeLight .statLabel,
+.themeLight p {
+  color: #334155 !important;
+}
+
+.themeLight .bentoCard {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 25px rgba(148, 163, 184, 0.15) !important;
+}
+
+.themeLight .bentoTitle {
+  color: #0f172a !important;
+}
+
+.themeLight .aiBadge {
+  background: rgba(2, 132, 199, 0.1) !important;
+  border-color: rgba(2, 132, 199, 0.25) !important;
+  color: #0284c7 !important;
+}
+
+.themeLight .aiSimulatorCard {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 20px 40px rgba(148, 163, 184, 0.12) !important;
+}
+
+.themeLight .promptInputBox {
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.themeLight .promptInput {
+  color: #0f172a !important;
+}
+
+.themeLight .promptInput::placeholder {
+  color: #94a3b8 !important;
+}
+
+.themeLight .statsGrid {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 10px 25px rgba(148, 163, 184, 0.1) !important;
+}
+
+.themeLight .footer {
+  background: #e2e8f0 !important;
+  border-top: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.themeLight h1, .themeLight h2, .themeLight h3, .themeLight strong {
+  color: #0f172a !important;
+}
+
+.themeNeon {
+  --settings-btn-bg: rgba(10, 10, 35, 0.9);
+  --settings-btn-color: #00f0ff;
+  --settings-btn-border: rgba(0, 240, 255, 0.4);
+  background-color: #050515 !important;
+  color: #00f0ff !important;
+}
+
+.themeNeon .bentoCard {
+  background: rgba(10, 10, 35, 0.85) !important;
+  border-color: rgba(0, 240, 255, 0.3) !important;
+  color: #00f0ff !important;
+}
+
+.themeNeon h1, .themeNeon h2, .themeNeon h3, .themeNeon strong {
+  color: #00f0ff !important;
+}
+
+.themeRetro {
+  --settings-btn-bg: rgba(41, 37, 36, 0.9);
+  --settings-btn-color: #fef08a;
+  --settings-btn-border: rgba(245, 158, 11, 0.4);
+  background-color: #1c1917 !important;
+  color: #fef08a !important;
+}
+
+.themeRetro .bentoCard {
+  background: rgba(41, 37, 36, 0.9) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #fef08a !important;
+}
+
+.themeRetro h1, .themeRetro h2, .themeRetro h3, .themeRetro strong {
+  color: #fef08a !important;
+}
+
+.settingsBtn {
+  background: var(--settings-btn-bg) !important;
+  color: var(--settings-btn-color) !important;
+  border-color: var(--settings-btn-border) !important;
+  transition: all 0.3s ease !important;
 }
 
 /* Background Glowing Orbs */
@@ -266,9 +393,10 @@
 .colSpan4 { grid-column: span 4; }
 .colSpan6 { grid-column: span 6; }
 .colSpan8 { grid-column: span 8; }
+.colSpan12 { grid-column: span 12; }
 
 @media (max-width: 900px) {
-  .colSpan4, .colSpan6, .colSpan8 {
+  .colSpan4, .colSpan6, .colSpan8, .colSpan12 {
     grid-column: span 12;
   }
 }
