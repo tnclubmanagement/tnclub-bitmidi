@@ -43,8 +43,8 @@ function MainStudioContent() {
   const [enabledInstruments, setEnabledInstruments] = useState<Record<string, boolean>>({
     piano: true,
     bass: true,
-    strings: false,
-    drums: false,
+    strings: true,
+    drums: true,
   });
 
   // Dynamic Theme Algorithm Selector & Custom Token Palette
@@ -103,26 +103,26 @@ function MainStudioContent() {
     { id: "preset_5", title: "Canon in D", artist: "Johann Pachelbel", file_path: "clean_midi/Pachelbel/Canon in D.mid" },
   ], []);
 
-  // Playlist & Favorites State (Lazy Initialized with Curated Default Presets)
-  const [playlist, setPlaylist] = useState<TrackRecord[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const savedPlaylist = localStorage.getItem("tn_midi_playlist");
-        if (savedPlaylist && JSON.parse(savedPlaylist).length > 0) {
-          return JSON.parse(savedPlaylist);
+  // Playlist & Favorites State (SSR Hydration Safe)
+  const [playlist, setPlaylist] = useState<TrackRecord[]>(DEFAULT_PRESETS);
+
+  // Sync localStorage on Client Mount (SSR Hydration Safe)
+  useEffect(() => {
+    try {
+      const savedPlaylist = localStorage.getItem("tn_midi_playlist");
+      if (savedPlaylist) {
+        const parsed = JSON.parse(savedPlaylist);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          requestAnimationFrame(() => {
+            setPlaylist(parsed);
+          });
         }
-      } catch (e) {
-        console.warn("Failed to load playlist from localStorage", e);
       }
+    } catch (e) {
+      console.warn("Failed to load playlist from localStorage", e);
     }
-    return [
-      { id: "preset_1", title: "Amish Paradise", artist: "\"Weird Al\" Yankovic", file_path: "clean_midi/Yankovic, \"Weird Al\"/Amish Paradise.mid" },
-      { id: "preset_2", title: "A Night To Remember", artist: "911", file_path: "clean_midi/911/A Night To Remember.mid" },
-      { id: "preset_3", title: "Don't Look Back In Anger", artist: "Oasis", file_path: "clean_midi/Oasis/Don't Look Back In Anger.mid" },
-      { id: "preset_4", title: "Bohemian Rhapsody", artist: "Queen", file_path: "clean_midi/Queen/Bohemian Rhapsody.mid" },
-      { id: "preset_5", title: "Canon in D", artist: "Johann Pachelbel", file_path: "clean_midi/Pachelbel/Canon in D.mid" },
-    ];
-  });
+  }, []);
+
   const [isPlaylistOpen, setIsPlaylistOpen] = useState<boolean>(false);
 
   // Multi-Mode Stage Visualizer Modal State
@@ -361,12 +361,21 @@ function MainStudioContent() {
       setAudioStatus("Playing MIDI Audio...");
       setIsPlaying(true);
 
-      // High-Precision Time Sync Engine (60FPS Frame Sync)
+      // High-Precision Time Sync Engine (AudioContext Precise Clock)
+      const audioCtx = audioCtxRef.current;
+      const audioStartCtxTime = audioCtx ? audioCtx.currentTime - currentTime : 0;
       const initialCurrentTime = currentTime;
-      let startTs = 0;
+      let fallbackTs = 0;
+
       playbackTimerRef.current = window.setInterval(() => {
-        if (!startTs) startTs = Date.now() - initialCurrentTime * 1000;
-        const elapsedSec = (Date.now() - startTs) / 1000;
+        let elapsedSec = 0;
+        if (audioCtx) {
+          elapsedSec = audioCtx.currentTime - audioStartCtxTime;
+        } else {
+          if (!fallbackTs) fallbackTs = Date.now() - initialCurrentTime * 1000;
+          elapsedSec = (Date.now() - fallbackTs) / 1000;
+        }
+
         if (elapsedSec <= midi.duration) {
           setCurrentTime(elapsedSec);
         } else {
@@ -405,13 +414,13 @@ function MainStudioContent() {
         const programNumber = t.instrument?.number || 0;
         const instType = getInstType(t.channel || 0, t.name || "", programNumber);
         
-        // Mute or play audio matching the user's enabledInstruments toggle
-        if (!enabledInstruments[instType]) return;
-
         t.notes.forEach((note) => {
-          const delayMs = note.time * 1000;
+          const delayMs = (note.time - currentTime) * 1000;
+          if (delayMs < 0) return; // Skip notes in the past
+
           const timeoutId = window.setTimeout(() => {
-            if (soundfontRef.current) {
+            // Check real-time instrument mute state right when the note triggers
+            if (soundfontRef.current && enabledInstrumentsRef.current[instType]) {
               setActiveMidiNote(note.midi);
               soundfontRef.current.start({
                 note: note.midi,
@@ -424,7 +433,7 @@ function MainStudioContent() {
         });
       });
 
-      const totalDurationMs = midi.duration * 1000;
+      const totalDurationMs = (midi.duration - currentTime) * 1000;
       const endTimeoutId = window.setTimeout(() => {
         if (loopMode === "one") {
           playTrack(track);
@@ -459,7 +468,12 @@ function MainStudioContent() {
     }
   };
 
-  // Global Keyboard Shortcuts (Space: Play/Pause, M: Mute/Unmute)
+  // Keep enabledInstruments in a Ref to avoid re-triggering component re-renders
+  const enabledInstrumentsRef = useRef(enabledInstruments);
+  useEffect(() => {
+    enabledInstrumentsRef.current = enabledInstruments;
+  }, [enabledInstruments]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (

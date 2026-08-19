@@ -28,6 +28,263 @@ type Props = {
   formatTime: (sec: number) => string;
 };
 
+// Top-Level Clean Lookup & Helper Functions
+const INSTRUMENT_PALETTE: Record<
+  string,
+  { normalFill: string; hitFill: string; stroke: string; noteColor: string }
+> = {
+  drums: { normalFill: "#d97706", hitFill: "#f59e0b", stroke: "#fbbf24", noteColor: "#d97706" },
+  bass: { normalFill: "#7e22ce", hitFill: "#c084fc", stroke: "#e9d5ff", noteColor: "#7e22ce" },
+  strings: { normalFill: "rgba(244, 114, 182, 0.28)", hitFill: "rgba(244, 114, 182, 0.7)", stroke: "rgba(244, 114, 182, 0.45)", noteColor: "#be185d" },
+  piano: { normalFill: "#0369a1", hitFill: "#38bdf8", stroke: "#7dd3fc", noteColor: "#0284c7" },
+};
+
+function getInstrumentCategory(channel: number, name: string = "", program: number = 0): string {
+  if (channel === 9 || channel === 10) return "drums";
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes("bass") || (program >= 32 && program <= 39)) return "bass";
+  if (
+    nameLower.includes("string") ||
+    nameLower.includes("brass") ||
+    nameLower.includes("pad") ||
+    nameLower.includes("guitar") ||
+    nameLower.includes("synth") ||
+    nameLower.includes("organ") ||
+    nameLower.includes("flute") ||
+    nameLower.includes("sax") ||
+    (program >= 24 && program <= 31) ||
+    (program >= 40 && program <= 55) ||
+    (program >= 56 && program <= 79) ||
+    (program >= 80 && program <= 103)
+  ) {
+    return "strings";
+  }
+  return "piano";
+}
+
+function drawLedgerLines(ctx: CanvasRenderingContext2D, noteX: number, startY: number, endY: number, step: number) {
+  ctx.strokeStyle = "#94a3b8";
+  ctx.lineWidth = 1;
+  const isUp = endY < startY;
+  for (let ly = startY + (isUp ? -step : step); isUp ? ly >= endY : ly <= endY; ly += isUp ? -step : step) {
+    ctx.beginPath();
+    ctx.moveTo(noteX - 9, ly);
+    ctx.lineTo(noteX + 9, ly);
+    ctx.stroke();
+  }
+}
+
+// Data Mapper & Pipeline Processor Object for Sheet Music & Canvas
+class MidiDataProcessor {
+  static getFilteredNotes(midiData: Midi, enabledInstruments: Record<string, boolean>) {
+    const filteredTracks = midiData.tracks.filter((t) => {
+      const cat = getInstrumentCategory(t.channel || 0, t.name || "", t.instrument?.number || 0);
+      return enabledInstruments[cat] && t.notes.length > 0;
+    });
+
+    return filteredTracks.flatMap((t) => {
+      const cat = getInstrumentCategory(t.channel || 0, t.name || "", t.instrument?.number || 0);
+      return t.notes.map((n) => {
+        (n as unknown as { _instType: string })._instType = cat;
+        return n;
+      });
+    });
+  }
+
+  static getSystemChords(
+    rawNotes: Array<{ time: number; midi: number; _instType?: string }>,
+    currentTime: number,
+    systemIndex: number,
+    systemWindowSec: number = 4
+  ) {
+    const currentSystemPage = Math.floor(currentTime / (systemWindowSec * 2));
+    const startSec = (currentSystemPage * 2 + systemIndex) * systemWindowSec;
+    const systemNotes = rawNotes.filter((n) => n.time >= startSec && n.time < startSec + systemWindowSec);
+
+    const chordMap = new Map<number, typeof systemNotes>();
+    systemNotes.forEach((n) => {
+      const quantizedTime = Math.round(n.time * 10) / 10;
+      if (!chordMap.has(quantizedTime)) {
+        chordMap.set(quantizedTime, []);
+      }
+      chordMap.get(quantizedTime)!.push(n);
+    });
+
+    return { chordMap, startSec, systemWindowSec };
+  }
+}
+
+// Dedicated Canvas Painter Object (Encapsulates repetitive 2D drawing calls)
+class CanvasPainter {
+  static drawSheetHeader(ctx: CanvasRenderingContext2D, width: number, title: string, artist: string) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, 540);
+
+    ctx.fillStyle = "#0f172a";
+    ctx.font = 'bold 22px "Playfair Display", "Georgia", "Times New Roman", serif';
+    ctx.textAlign = "center";
+    ctx.fillText(title || "Piano Sheet Music", width / 2, 45);
+
+    ctx.font = 'italic 13px "Georgia", serif';
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(`Composer: ${artist || "TN Web MIDI Studio"} — Interactive Staff Score (A4)`, width / 2, 70);
+
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(60, 85);
+    ctx.lineTo(width - 60, 85);
+    ctx.stroke();
+  }
+
+  static drawGrandStaffSystem(
+    ctx: CanvasRenderingContext2D,
+    startY: number,
+    systemIndex: number,
+    width: number,
+    rawNotes: Array<{ time: number; midi: number; _instType?: string }>,
+    currentTime: number,
+    isPlaying: boolean
+  ) {
+    const trebleY = startY;
+    const bassY = startY + 80;
+    const staffWidth = width - 140;
+
+    // Draw Staff Grid Lines & Measure Dividers
+    drawStaffGrid(ctx, trebleY, bassY, staffWidth);
+
+    // Draw Clef & Time Signatures
+    drawClefsAndTimeSignature(ctx, trebleY, bassY);
+
+    // Get System Window Chords via Data Processor Class
+    const { chordMap, startSec, systemWindowSec } = MidiDataProcessor.getSystemChords(rawNotes, currentTime, systemIndex);
+
+    // Draw Treble & Bass Clef Chords
+    chordMap.forEach((chordNotes, timeKey) => {
+      const noteX = 130 + ((timeKey - startSec) / systemWindowSec) * (staffWidth - 80);
+      if (noteX <= 120 || noteX >= 70 + staffWidth) return;
+
+      const isActiveChord = isPlaying && Math.abs(currentTime - timeKey) < 0.2;
+      const trebleNotes = chordNotes.filter((n) => n.midi >= 60);
+      const bassNotes = chordNotes.filter((n) => n.midi < 60);
+
+      drawStaffChordNotes(ctx, trebleNotes, trebleY, noteX, true, isActiveChord);
+      drawStaffChordNotes(ctx, bassNotes, bassY, noteX, false, isActiveChord);
+    });
+  }
+
+  static drawFallingNotesBackground(ctx: CanvasRenderingContext2D, width: number, height: number) {
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < width; x += 30) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+  }
+}
+
+// Render Helper Functions (Decomposed Small Single-Responsibility Functions)
+function drawStaffGrid(ctx: CanvasRenderingContext2D, trebleY: number, bassY: number, staffWidth: number) {
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 1.2;
+
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(70, trebleY + i * 10);
+    ctx.lineTo(70 + staffWidth, trebleY + i * 10);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(70, bassY + i * 10);
+    ctx.lineTo(70 + staffWidth, bassY + i * 10);
+    ctx.stroke();
+  }
+
+  // Left Bracket Bar Line
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(70, trebleY);
+  ctx.lineTo(70, bassY + 40);
+  ctx.stroke();
+
+  // Measure Dividers (4 measures)
+  const measWidth = staffWidth / 4;
+  ctx.lineWidth = 1.2;
+  for (let m = 1; m <= 4; m++) {
+    const bx = 70 + m * measWidth;
+    ctx.beginPath();
+    ctx.moveTo(bx, trebleY);
+    ctx.lineTo(bx, trebleY + 40);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(bx, bassY);
+    ctx.lineTo(bx, bassY + 40);
+    ctx.stroke();
+  }
+}
+
+function drawClefsAndTimeSignature(ctx: CanvasRenderingContext2D, trebleY: number, bassY: number) {
+  ctx.fillStyle = "#1e293b";
+  ctx.font = "bold 26px serif";
+  ctx.textAlign = "center";
+  ctx.fillText("𝄞", 88, trebleY + 20);
+  ctx.fillText("𝄢", 88, bassY + 20);
+
+  ctx.font = "bold 16px serif";
+  ctx.fillText("4", 112, trebleY + 10);
+  ctx.fillText("4", 112, trebleY + 30);
+  ctx.fillText("4", 112, bassY + 10);
+  ctx.fillText("4", 112, bassY + 30);
+}
+
+function drawStaffChordNotes(
+  ctx: CanvasRenderingContext2D,
+  chordNotes: Array<{ midi: number; _instType?: string }>,
+  baseStaffY: number,
+  noteX: number,
+  isTrebleClef: boolean,
+  isActiveChord: boolean
+) {
+  if (chordNotes.length === 0) return;
+
+  const yPositions: number[] = [];
+  chordNotes.forEach((n) => {
+    const semitoneOffset = isTrebleClef ? n.midi - 60 : n.midi - 48;
+    const staffStepY = baseStaffY + 40 - semitoneOffset * 3.5;
+    yPositions.push(staffStepY);
+
+    const palette = INSTRUMENT_PALETTE[n._instType || "piano"] || INSTRUMENT_PALETTE.piano;
+
+    ctx.fillStyle = isActiveChord ? "#38bdf8" : palette.noteColor;
+    ctx.beginPath();
+    ctx.ellipse(noteX, staffStepY, 5.5, 4, -0.2, 0, 2 * Math.PI);
+    ctx.fill();
+
+    if (staffStepY < baseStaffY) {
+      drawLedgerLines(ctx, noteX, baseStaffY - 10, staffStepY, 10);
+    } else if (staffStepY > baseStaffY + 40) {
+      drawLedgerLines(ctx, noteX, baseStaffY + 50, staffStepY, 10);
+    }
+  });
+
+  if (yPositions.length > 0) {
+    const minY = Math.min(...yPositions);
+    const maxY = Math.max(...yPositions);
+    ctx.strokeStyle = isActiveChord ? "#0284c7" : "#0f172a";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(noteX + 5, maxY);
+    ctx.lineTo(noteX + 5, minY - 20);
+    ctx.stroke();
+  }
+}
+
 export default function MultiModeVisualizerModal({
   open,
   onClose,
@@ -87,7 +344,7 @@ export default function MultiModeVisualizerModal({
     };
   }, [open, track, getMidiUrl]);
 
-  // Render Canvas 2D per mode (With High DPI Retina Scaling)
+  // Render Canvas 2D per mode (With High DPI Retina Scaling & Cached Resolution)
   useEffect(() => {
     if (!open || !canvasRef.current || !midiData) return;
     const canvas = canvasRef.current;
@@ -98,11 +355,17 @@ export default function MultiModeVisualizerModal({
     const displayWidth = canvas.parentElement?.clientWidth || 880;
     const displayHeight = visMode === "sheet" ? 540 : 380;
 
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
-    canvas.style.width = `${displayWidth}px`;
-    canvas.style.height = `${displayHeight}px`;
+    // Only resize canvas buffer if dimensions actually change (prevents expensive Canvas clear & layout thrashing)
+    const targetWidth = displayWidth * dpr;
+    const targetHeight = displayHeight * dpr;
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
+    }
 
+    ctx.save();
     ctx.scale(dpr, dpr);
     ctx.textBaseline = "middle";
 
@@ -111,307 +374,74 @@ export default function MultiModeVisualizerModal({
 
     ctx.clearRect(0, 0, width, height);
 
-    if (visMode === "falling-notes") {
-      // 1. Render Falling Notes (Synthesia Style synced with Player)
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(0, 0, width, height);
+    // Render Strategy Dispatcher (Replaces if-else branching with Strategy Pattern)
+    const renderStrategies: Record<
+      string,
+      (ctx: CanvasRenderingContext2D, width: number, height: number) => void
+    > = {
+      "falling-notes": (ctx, width, height) => {
+        CanvasPainter.drawFallingNotesBackground(ctx, width, height);
 
-      // Background Grid Lines
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
-      ctx.lineWidth = 1;
-      for (let x = 0; x < width; x += 30) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
+        const speed = 120;
+        const renderedNoteKeys = new Set<string>();
+        const keyWidth = Math.max(8, width / 88);
 
-      // Helper: Classify MIDI Track Instrument Type Accurately (General MIDI Specs)
-      const getInstrumentType = (channel: number, trackName: string = "", instrumentProgram: number = 0) => {
-        if (channel === 9 || channel === 10) return "drums";
-        const nameLower = trackName.toLowerCase();
-        if (nameLower.includes("bass") || (instrumentProgram >= 32 && instrumentProgram <= 39)) return "bass";
-        if (
-          nameLower.includes("string") ||
-          nameLower.includes("brass") ||
-          nameLower.includes("pad") ||
-          nameLower.includes("guitar") ||
-          nameLower.includes("synth") ||
-          nameLower.includes("organ") ||
-          nameLower.includes("flute") ||
-          nameLower.includes("sax") ||
-          (instrumentProgram >= 24 && instrumentProgram <= 31) || // Guitars
-          (instrumentProgram >= 40 && instrumentProgram <= 55) || // Strings/Ensemble
-          (instrumentProgram >= 56 && instrumentProgram <= 79) || // Brass/Reed/Pipe
-          (instrumentProgram >= 80 && instrumentProgram <= 103)  // Synth Lead/Pad
-        ) {
-          return "strings";
-        }
-        return "piano";
-      };
+        midiData.tracks.forEach((t) => {
+          const programNumber = t.instrument?.number || 0;
+          const cat = getInstrumentCategory(t.channel || 0, t.name || "", programNumber);
+          if (!enabledInstruments[cat]) return;
 
-      // Helper: Classify MIDI Track Instrument Color Palette
-      const getTrackColor = (channel: number, trackName: string = "", program: number = 0, isHit: boolean = false) => {
-        const type = getInstrumentType(channel, trackName, program);
-        if (type === "drums") return { fill: isHit ? "#f59e0b" : "#d97706", stroke: "#fbbf24" };
-        if (type === "bass") return { fill: isHit ? "#c084fc" : "#7e22ce", stroke: "#e9d5ff" };
-        if (type === "strings") return { fill: isHit ? "#f472b6" : "#be185d", stroke: "#fbcfe8" };
-        return { fill: isHit ? "#38bdf8" : "#0369a1", stroke: "#7dd3fc" };
-      };
+          const palette = INSTRUMENT_PALETTE[cat] || INSTRUMENT_PALETTE.piano;
+          const isDrum = cat === "drums";
 
-      // Render Falling Notes Blocks (Professional Synthesia 88-Key Grid Alignment)
-      const speed = 120; // px/sec - smooth elegant speed
-      const renderedNoteKeys = new Set<string>();
-      const keyWidth = Math.max(8, width / 88); // Synthesia 88 piano keys width
+          t.notes.forEach((n) => {
+            const timeQuantized = Math.round(n.time * 20) / 20;
+            const noteKey = `${cat}-${n.midi}-${timeQuantized}`;
+            if (renderedNoteKeys.has(noteKey)) return;
+            renderedNoteKeys.add(noteKey);
 
-      midiData.tracks.forEach((t) => {
-        const programNumber = t.instrument?.number || 0;
-        const type = getInstrumentType(t.channel || 0, t.name || "", programNumber);
-        if (!enabledInstruments[type]) return; // Skip disabled instruments by user filter
+            const noteX = Math.min(width - keyWidth, Math.max(0, ((n.midi - 21) / 88) * width));
+            const noteY = height - (n.time - currentTime) * speed - 20;
+            const noteHeight = isDrum ? 8 : Math.min(180, Math.max(12, n.duration * speed));
 
-        const isDrum = type === "drums";
-        t.notes.forEach((n) => {
-          // Quantize note time (50ms window) to merge micro-jitter duplicate notes into clean chords
-          const timeQuantized = Math.round(n.time * 20) / 20;
-          const noteKey = `${type}-${n.midi}-${timeQuantized}`;
-          if (renderedNoteKeys.has(noteKey)) return;
-          renderedNoteKeys.add(noteKey);
+            if (noteY + noteHeight > 0 && noteY < height) {
+              const timeDiff = currentTime - n.time;
+              const isHit = timeDiff >= -0.05 && timeDiff <= Math.max(0.18, n.duration);
 
-          // Calculate precise X aligned with 88-key piano keyboard layout
-          const noteX = Math.min(width - keyWidth, Math.max(0, ((n.midi - 21) / 88) * width));
-          const noteY = height - (n.time - currentTime) * speed - 20;
-          
-          // Cap max note height for sustained Pad/Strings notes so they don't stretch indefinitely
-          const rawNoteHeight = n.duration * speed;
-          const noteHeight = isDrum ? 8 : Math.min(180, Math.max(12, rawNoteHeight));
+              ctx.fillStyle = isHit ? palette.hitFill : palette.normalFill;
+              ctx.shadowBlur = isHit ? 10 : 0;
+              ctx.shadowColor = palette.stroke;
 
-          if (noteY + noteHeight > 0 && noteY < height) {
-            // Precise Hit Detection: Note head is at or crossing the baseline
-            const timeDiff = currentTime - n.time;
-            const isHit = timeDiff >= -0.05 && timeDiff <= Math.max(0.18, n.duration);
-            const colors = getTrackColor(t.channel || 0, t.name || "", programNumber, isHit);
-
-            const isStringsType = type === "strings";
-
-            ctx.fillStyle = isStringsType
-              ? isHit ? "rgba(244, 114, 182, 0.7)" : "rgba(244, 114, 182, 0.28)"
-              : colors.fill;
-
-            ctx.shadowBlur = isHit ? 10 : 0;
-            ctx.shadowColor = colors.stroke;
-
-            ctx.beginPath();
-            ctx.roundRect(noteX, noteY, Math.max(6, keyWidth - 2), noteHeight, 4);
-            ctx.fill();
-
-            ctx.strokeStyle = isStringsType ? "rgba(244, 114, 182, 0.45)" : colors.stroke;
-            ctx.lineWidth = isHit ? 1.5 : 0.8;
-            ctx.stroke();
-          }
-        });
-      });
-      ctx.shadowBlur = 0;
-
-    } else if (visMode === "sheet") {
-      // 2. Render High-Resolution Classical Sheet Music A4 Format (Grand Staff)
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-
-      // Title & Header (Classical Serif Typeface)
-      ctx.fillStyle = "#0f172a";
-      ctx.font = 'bold 22px "Playfair Display", "Georgia", "Times New Roman", serif';
-      ctx.textAlign = "center";
-      ctx.fillText(track?.title || "Piano Sheet Music", width / 2, 45);
-
-      ctx.font = 'italic 13px "Georgia", serif';
-      ctx.fillStyle = "#64748b";
-      ctx.fillText(`Composer: ${track?.artist || "TN Web MIDI Studio"} — Interactive Staff Score (A4)`, width / 2, 70);
-
-      // Decorative divider lines
-      ctx.strokeStyle = "#cbd5e1";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(60, 85);
-      ctx.lineTo(width - 60, 85);
-      ctx.stroke();
-
-      // Grand Staff Systems (Treble + Bass)
-      const renderStaffPair = (startY: number, systemIndex: number) => {
-        const trebleY = startY;
-        const bassY = startY + 80;
-        const staffWidth = width - 140;
-
-        ctx.strokeStyle = "#334155";
-        ctx.lineWidth = 1.2;
-
-        // Treble 5 Lines
-        for (let i = 0; i < 5; i++) {
-          const y = trebleY + i * 10;
-          ctx.beginPath();
-          ctx.moveTo(70, y);
-          ctx.lineTo(70 + staffWidth, y);
-          ctx.stroke();
-        }
-
-        // Bass 5 Lines
-        for (let i = 0; i < 5; i++) {
-          const y = bassY + i * 10;
-          ctx.beginPath();
-          ctx.moveTo(70, y);
-          ctx.lineTo(70 + staffWidth, y);
-          ctx.stroke();
-        }
-
-        // Connecting Bar Line on left
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(70, trebleY);
-        ctx.lineTo(70, bassY + 40);
-        ctx.stroke();
-
-        // Bar lines (Measure Dividers)
-        const measWidth = staffWidth / 4;
-        ctx.lineWidth = 1.2;
-        for (let m = 1; m <= 4; m++) {
-          const bx = 70 + m * measWidth;
-          ctx.beginPath();
-          ctx.moveTo(bx, trebleY);
-          ctx.lineTo(bx, trebleY + 40);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(bx, bassY);
-          ctx.lineTo(bx, bassY + 40);
-          ctx.stroke();
-        }
-
-        // Clef Labels
-        ctx.fillStyle = "#1e293b";
-        ctx.font = "bold 26px serif";
-        ctx.textAlign = "center";
-        ctx.fillText("𝄞", 88, trebleY + 20); // Treble Clef G
-        ctx.fillText("𝄢", 88, bassY + 20);   // Bass Clef F
-
-        // Time Signature 4/4
-        ctx.font = "bold 16px serif";
-        ctx.fillText("4", 112, trebleY + 10);
-        ctx.fillText("4", 112, trebleY + 30);
-        ctx.fillText("4", 112, bassY + 10);
-        ctx.fillText("4", 112, bassY + 30);
-
-        // Render Notes Filtered by Enabled Instruments
-        const filteredTracks = midiData.tracks.filter((t) => {
-          const type = (t.channel === 9 || t.channel === 10) ? "drums" :
-                       (t.name || "").toLowerCase().includes("bass") ? "bass" :
-                       ((t.name || "").toLowerCase().includes("string") || (t.name || "").toLowerCase().includes("brass") || (t.name || "").toLowerCase().includes("guitar")) ? "strings" : "piano";
-          return enabledInstruments[type] && t.notes.length > 0;
-        });
-
-        const rawNotes = filteredTracks.flatMap((t) => {
-          const type = (t.channel === 9 || t.channel === 10) ? "drums" :
-                       (t.name || "").toLowerCase().includes("bass") ? "bass" :
-                       ((t.name || "").toLowerCase().includes("string") || (t.name || "").toLowerCase().includes("brass") || (t.name || "").toLowerCase().includes("guitar")) ? "strings" : "piano";
-          return t.notes.map((n) => {
-            (n as unknown as { _instType: string })._instType = type;
-            return n;
-          });
-        });
-
-        // Dynamic System Window tracking currentTime smoothly (4 seconds per system)
-        const systemWindowSec = 4;
-        const currentSystemPage = Math.floor(currentTime / (systemWindowSec * 2));
-        const startSec = (currentSystemPage * 2 + systemIndex) * systemWindowSec;
-        const systemNotes = rawNotes.filter((n) => n.time >= startSec && n.time < startSec + systemWindowSec);
-
-        // Group notes played at the exact same timestamp into Chords
-        const chordMap = new Map<number, typeof systemNotes>();
-        systemNotes.forEach((n) => {
-          const quantizedTime = Math.round(n.time * 10) / 10;
-          if (!chordMap.has(quantizedTime)) {
-            chordMap.set(quantizedTime, []);
-          }
-          chordMap.get(quantizedTime)!.push(n);
-        });
-
-        chordMap.forEach((chordNotes, timeKey) => {
-          const noteX = 130 + ((timeKey - startSec) / systemWindowSec) * (staffWidth - 80);
-          if (noteX <= 120 || noteX >= 70 + staffWidth) return;
-
-          // Highlight playing notes in active system window
-          const isActiveChord = isPlaying && Math.abs(currentTime - timeKey) < 0.2;
-
-          // Render Treble & Bass notes within Chord
-          const trebleNotes = chordNotes.filter((n) => n.midi >= 60);
-          const bassNotes = chordNotes.filter((n) => n.midi < 60);
-
-          const drawStaffChord = (cNotes: typeof systemNotes, isTrebleClef: boolean) => {
-            if (cNotes.length === 0) return;
-
-            const baseStaffY = isTrebleClef ? trebleY : bassY;
-            const yPositions: number[] = [];
-
-            cNotes.forEach((n) => {
-              const semitoneOffset = isTrebleClef ? n.midi - 60 : n.midi - 48;
-              const staffStepY = baseStaffY + 40 - semitoneOffset * 3.5;
-              yPositions.push(staffStepY);
-
-              // Match Notehead Color to Instrument Type (Piano: Cyan, Bass: Purple, Strings: Pink, Drums: Gold)
-              const instType = (n as unknown as { _instType?: string })._instType || "piano";
-              const noteColor =
-                instType === "bass" ? "#7e22ce" :
-                instType === "strings" ? "#be185d" :
-                instType === "drums" ? "#d97706" : "#0284c7";
-
-              // Draw Notehead Oval
-              ctx.fillStyle = isActiveChord ? "#38bdf8" : noteColor;
               ctx.beginPath();
-              ctx.ellipse(noteX, staffStepY, 5.5, 4, -0.2, 0, 2 * Math.PI);
+              ctx.roundRect(noteX, noteY, Math.max(6, keyWidth - 2), noteHeight, 4);
               ctx.fill();
 
-              // Ledger Lines
-              if (staffStepY < baseStaffY) {
-                for (let ly = baseStaffY - 10; ly >= staffStepY; ly -= 10) {
-                  ctx.strokeStyle = "#94a3b8";
-                  ctx.lineWidth = 1;
-                  ctx.beginPath();
-                  ctx.moveTo(noteX - 9, ly);
-                  ctx.lineTo(noteX + 9, ly);
-                  ctx.stroke();
-                }
-              } else if (staffStepY > baseStaffY + 40) {
-                for (let ly = baseStaffY + 50; ly <= staffStepY; ly += 10) {
-                  ctx.strokeStyle = "#94a3b8";
-                  ctx.lineWidth = 1;
-                  ctx.beginPath();
-                  ctx.moveTo(noteX - 9, ly);
-                  ctx.lineTo(noteX + 9, ly);
-                  ctx.stroke();
-                }
-              }
-            });
-
-            // Single Stem for Chord
-            if (yPositions.length > 0) {
-              const minY = Math.min(...yPositions);
-              const maxY = Math.max(...yPositions);
-              ctx.strokeStyle = isActiveChord ? "#0284c7" : "#0f172a";
-              ctx.lineWidth = 1.4;
-              ctx.beginPath();
-              ctx.moveTo(noteX + 5, maxY);
-              ctx.lineTo(noteX + 5, minY - 20);
+              ctx.strokeStyle = palette.stroke;
+              ctx.lineWidth = isHit ? 1.5 : 0.8;
               ctx.stroke();
             }
-          };
-
-          drawStaffChord(trebleNotes, true);
-          drawStaffChord(bassNotes, false);
+          });
         });
-      };
+        ctx.shadowBlur = 0;
+      },
 
-      // Render 2 Grand Staff Systems on A4 Sheet Page
-      renderStaffPair(110, 0);
-      renderStaffPair(310, 1);
+      sheet: (ctx, width) => {
+        CanvasPainter.drawSheetHeader(ctx, width, track?.title || "", track?.artist || "");
+        const rawNotes = MidiDataProcessor.getFilteredNotes(midiData, enabledInstruments);
+
+        // Declarative Grand Staff Systems Map Array (2 Systems per A4 Page)
+        [110, 310].forEach((startY, systemIdx) => {
+          CanvasPainter.drawGrandStaffSystem(ctx, startY, systemIdx, width, rawNotes, currentTime, isPlaying);
+        });
+      },
+    };
+
+    // Dispatch Strategy
+    const renderFn = renderStrategies[visMode];
+    if (renderFn) {
+      renderFn(ctx, width, height);
     }
+    ctx.restore();
   }, [visMode, currentTime, isPlaying, midiData, open, track, enabledInstruments]);
 
   return (
