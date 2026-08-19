@@ -1,0 +1,17 @@
+{
+  "name": "TN MIDI AI Studio",
+  "short_name": "TN MIDI AI",
+  "description": "AI-Powered Web MIDI Composer, Synthesizer & Multi-track Visualizer Platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#0369a1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

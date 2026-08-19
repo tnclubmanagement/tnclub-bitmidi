@@ -42,7 +42,7 @@ export async function fetchTracksFromShard(worker: WorkerHttpvfs, query: string 
   if (query.trim().length > 0) {
     sql += ` WHERE title LIKE '%${query.replace(/'/g, "''")}%' OR artist LIKE '%${query.replace(/'/g, "''")}%'`;
   }
-  sql += " ORDER BY artist ASC, title ASC LIMIT 5000;";
+  sql += " ORDER BY artist ASC, title ASC LIMIT 20000;";
 
   const result = await worker.db.query(sql);
   return result as unknown as TrackRecord[];
