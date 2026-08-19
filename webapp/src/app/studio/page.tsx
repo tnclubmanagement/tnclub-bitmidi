@@ -183,7 +183,8 @@ function MainStudioContent() {
   useEffect(() => {
     async function loadIndex() {
       try {
-        const res = await fetch("/db/master_index.json");
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+        const res = await fetch(`${basePath}/db/master_index.json`);
         const data: MasterIndexEntry[] = await res.json();
         setMasterIndex(data);
         if (data.length > 0) {
@@ -274,7 +275,8 @@ function MainStudioContent() {
       relPath = filePath.split("/").pop() || "";
     }
     const encodedSegments = relPath.split("/").map((segment) => encodeURIComponent(segment));
-    return `/midi/${encodedSegments.join("/")}`;
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+    return `${basePath}/midi/${encodedSegments.join("/")}`;
   };
 
   const downloadMidiFile = (e: React.MouseEvent, track: TrackRecord) => {

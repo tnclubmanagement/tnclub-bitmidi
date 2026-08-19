@@ -26,7 +26,8 @@ function MainApiDocsContent() {
   const testApiCall = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/search?q=${encodeURIComponent(searchQuery)}`);
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+      const res = await fetch(`${basePath}/api/v1/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
       setApiResponse(JSON.stringify(data, null, 2));
     } catch (e) {

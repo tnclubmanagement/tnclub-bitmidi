@@ -15,9 +15,10 @@ export interface MasterIndexEntry {
 }
 
 export async function createShardWorker(shardFileName: string): Promise<WorkerHttpvfs> {
-  const workerUrl = new URL("/sql.js-httpvfs/sqlite.worker.js", window.location.origin).toString();
-  const wasmUrl = new URL("/sql.js-httpvfs/sql-wasm.wasm", window.location.origin).toString();
-  const dbUrl = new URL(`/db/${shardFileName}`, window.location.origin).toString();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  const workerUrl = new URL(`${basePath}/sql.js-httpvfs/sqlite.worker.js`, window.location.origin).toString();
+  const wasmUrl = new URL(`${basePath}/sql.js-httpvfs/sql-wasm.wasm`, window.location.origin).toString();
+  const dbUrl = new URL(`${basePath}/db/${shardFileName}`, window.location.origin).toString();
 
   const worker = await createDbWorker(
     [
