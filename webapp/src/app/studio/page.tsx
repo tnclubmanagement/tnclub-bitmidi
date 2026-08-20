@@ -17,7 +17,7 @@ import {
   HomeOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
-import { MasterIndexEntry, TrackRecord, createShardWorker, fetchTracksFromShard } from "@/lib/sqlWorker";
+import { MasterIndexEntry, TrackRecord, createShardWorker, fetchTracksFromShard, checkRangeSupport } from "@/lib/sqlWorker";
 import type { WorkerHttpvfs } from "sql.js-httpvfs";
 import { Midi } from "@tonejs/midi";
 import { Soundfont } from "smplr";
@@ -228,6 +228,12 @@ function MainStudioContent() {
       }
 
       try {
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+        const isRangeSupported = await checkRangeSupport(`${basePath}/db/${selectedShard}`);
+        if (!isRangeSupported) {
+          throw new Error("HTTP Range requests (206 Partial Content) are not supported by the server");
+        }
+
         const worker = await createShardWorker(selectedShard);
         if (!isMounted) return;
 
@@ -242,7 +248,21 @@ function MainStudioContent() {
         }
       } catch (err) {
         console.error("Error initializing shard worker", err);
-        if (isMounted) setLoading(false);
+        if (isMounted) {
+          try {
+            const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+            const fbRes = await fetch(`${basePath}/db/fallback_tracks.json`);
+            if (fbRes.ok) {
+              const fbData: TrackRecord[] = await fbRes.json();
+              setTracks(fbData);
+            } else {
+              setTracks(DEFAULT_PRESETS);
+            }
+          } catch {
+            setTracks(DEFAULT_PRESETS);
+          }
+          setLoading(false);
+        }
       }
     }
 
@@ -251,7 +271,7 @@ function MainStudioContent() {
     return () => {
       isMounted = false;
     };
-  }, [selectedShard, searchQuery]);
+  }, [selectedShard, searchQuery, DEFAULT_PRESETS]);
 
   const handleSearch = async (value: string) => {
     setSearchQuery(value);
@@ -260,6 +280,25 @@ function MainStudioContent() {
       try {
         const result = await fetchTracksFromShard(workerRef.current, value);
         setTracks(result);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setLoading(true);
+      try {
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+        const fbRes = await fetch(`${basePath}/db/fallback_tracks.json`);
+        if (fbRes.ok) {
+          const fbData: TrackRecord[] = await fbRes.json();
+          const q = value.toLowerCase().trim();
+          if (q) {
+            setTracks(fbData.filter((t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)));
+          } else {
+            setTracks(fbData);
+          }
+        }
+      } catch (e) {
+        console.error("Search fallback error", e);
       } finally {
         setLoading(false);
       }
@@ -272,12 +311,14 @@ function MainStudioContent() {
     if (match) {
       relPath = match[1];
     } else {
-      relPath = filePath.split("/").pop() || "";
+      relPath = filePath;
     }
     // Remove double quotes, hashes, and question marks to match sanitized upload path
     relPath = relPath.replace(/"/g, "").replace(/#/g, "").replace(/\?/g, "");
     const encodedSegments = relPath.split("/").map((segment) => encodeURIComponent(segment));
-    const midiBaseUrl = process.env.NEXT_PUBLIC_MIDI_BASE_URL;
+    const midiBaseUrl =
+      process.env.NEXT_PUBLIC_MIDI_BASE_URL ||
+      "https://oczfmoquiugfdksddwuf.supabase.co/storage/v1/object/public/midi";
     if (midiBaseUrl) {
       return `${midiBaseUrl.replace(/\/$/, "")}/${encodedSegments.join("/")}`;
     }

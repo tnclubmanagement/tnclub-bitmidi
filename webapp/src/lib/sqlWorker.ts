@@ -38,6 +38,19 @@ export async function createShardWorker(shardFileName: string): Promise<WorkerHt
   return worker;
 }
 
+export async function checkRangeSupport(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Range: "bytes=0-100" },
+    });
+    return res.status === 206;
+  } catch (err) {
+    console.warn("Range check failed:", err);
+    return false;
+  }
+}
+
 export async function fetchTracksFromShard(worker: WorkerHttpvfs, query: string = ""): Promise<TrackRecord[]> {
   let sql = "SELECT id, title, artist, file_path FROM tracks";
   if (query.trim().length > 0) {
