@@ -274,7 +274,13 @@ function MainStudioContent() {
     } else {
       relPath = filePath.split("/").pop() || "";
     }
+    // Remove double quotes, hashes, and question marks to match sanitized upload path
+    relPath = relPath.replace(/"/g, "").replace(/#/g, "").replace(/\?/g, "");
     const encodedSegments = relPath.split("/").map((segment) => encodeURIComponent(segment));
+    const midiBaseUrl = process.env.NEXT_PUBLIC_MIDI_BASE_URL;
+    if (midiBaseUrl) {
+      return `${midiBaseUrl.replace(/\/$/, "")}/${encodedSegments.join("/")}`;
+    }
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
     return `${basePath}/midi/${encodedSegments.join("/")}`;
   };
