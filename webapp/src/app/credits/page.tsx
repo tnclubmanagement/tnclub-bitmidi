@@ -165,9 +165,7 @@ function MainCreditsContent() {
           <Link id="credits-nav-credits" href="/credits" className={styles.navLink} style={{ color: "#38bdf8", fontWeight: 700 }}>
             {t.credits}
           </Link>
-          <Link id="credits-nav-api-docs" href="/api-docs" className={styles.navLink}>
-            API Docs
-          </Link>
+
 
           {/* Quick Settings Popover */}
           <Popover

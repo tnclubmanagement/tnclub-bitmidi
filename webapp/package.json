@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "cp out/api/search out/api/search.json 2>/dev/null || true",
     "start": "next start",
     "lint": "eslint"
   },
@@ -20,6 +21,7 @@
     "react-virtuoso": "^4.18.11",
     "smplr": "^1.0.0",
     "soundfont-player": "^0.12.0",
+    "sql.js": "^1.14.2",
     "sql.js-httpvfs": "^0.8.12",
     "tone": "^14.9.17"
   },

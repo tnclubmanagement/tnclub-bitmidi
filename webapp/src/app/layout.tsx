@@ -12,6 +12,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 export const metadata: Metadata = {
   title: {
     default: "TN MIDI AI Studio - AI-Powered Web MIDI Composer & Player",
@@ -22,7 +24,6 @@ export const metadata: Metadata = {
   authors: [{ name: "TNClub Team" }],
   creator: "TNClub",
   publisher: "TNClub",
-  metadataBase: new URL("https://bitmidi.tnclub.vn"),
   openGraph: {
     title: "TN MIDI AI Studio - Next-Gen Web MIDI Platform",
     description: "Trải nghiệm tạo, chỉnh sửa và trực quan hóa nhạc MIDI bằng trí tuệ nhân tạo đỉnh cao trên nền tảng Web.",
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
     siteName: "TN MIDI AI Studio",
     images: [
       {
-        url: "/og-banner.png",
+        url: `${basePath}/og-banner.png`,
         width: 1200,
         height: 630,
         alt: "TN MIDI AI Studio Banner",
@@ -43,15 +44,15 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "TN MIDI AI Studio - Next-Gen Web MIDI Platform",
     description: "Trải nghiệm tạo, chỉnh sửa và trực quan hóa nhạc MIDI bằng trí tuệ nhân tạo đỉnh cao trên nền tảng Web.",
-    images: ["/og-banner.png"],
+    images: [`${basePath}/og-banner.png`],
   },
-  manifest: "/manifest.webmanifest",
+  manifest: `${basePath}/manifest.webmanifest`,
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: `${basePath}/favicon.ico` },
+      { url: `${basePath}/favicon.svg`, type: "image/svg+xml" },
     ],
-    apple: "/apple-icon.png",
+    apple: `${basePath}/apple-icon.png`,
   },
 };
 

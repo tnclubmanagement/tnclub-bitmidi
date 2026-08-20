@@ -29,7 +29,6 @@ export async function GET() {
         sqlite_url: `/db/${entry.shard}`,
       })),
       architecture: "Client-Side Zero-Server SQLite HTTP Range Queries",
-      documentation: "/api-docs",
     });
   } catch (err) {
     return NextResponse.json({ success: false, error: (err as Error).message }, { status: 500 });

@@ -245,18 +245,7 @@ function MainStudioContent() {
       } catch (err) {
         console.error("Error initializing shard worker", err);
         if (isMounted) {
-          try {
-            const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-            const fbRes = await fetch(`${basePath}/db/fallback_tracks.json`);
-            if (fbRes.ok) {
-              const fbData: TrackRecord[] = await fbRes.json();
-              setTracks(fbData);
-            } else {
-              setTracks(DEFAULT_PRESETS);
-            }
-          } catch {
-            setTracks(DEFAULT_PRESETS);
-          }
+          setTracks([]);
           setLoading(false);
         }
       }
@@ -282,17 +271,7 @@ function MainStudioContent() {
     } else {
       setLoading(true);
       try {
-        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-        const fbRes = await fetch(`${basePath}/db/fallback_tracks.json`);
-        if (fbRes.ok) {
-          const fbData: TrackRecord[] = await fbRes.json();
-          const q = value.toLowerCase().trim();
-          if (q) {
-            setTracks(fbData.filter((t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)));
-          } else {
-            setTracks(fbData);
-          }
-        }
+        setTracks([]);
       } catch (e) {
         console.error("Search fallback error", e);
       } finally {
@@ -302,24 +281,12 @@ function MainStudioContent() {
   };
 
   const getMidiUrl = (filePath: string) => {
-    let relPath = "";
-    const match = filePath.match(/clean_midi\/(.+)$/);
-    if (match) {
-      relPath = match[1];
-    } else {
-      relPath = filePath;
-    }
-    // Remove double quotes, hashes, and question marks to match sanitized upload path
-    relPath = relPath.replace(/"/g, "").replace(/#/g, "").replace(/\?/g, "");
-    const encodedSegments = relPath.split("/").map((segment) => encodeURIComponent(segment));
+    const encodedSegments = filePath.split("/").map((segment) => encodeURIComponent(segment));
+    // Supabase public storage bucket "midi" – ensure the bucket exists and is public.
     const midiBaseUrl =
       process.env.NEXT_PUBLIC_MIDI_BASE_URL ||
       "https://oczfmoquiugfdksddwuf.supabase.co/storage/v1/object/public/midi";
-    if (midiBaseUrl) {
-      return `${midiBaseUrl.replace(/\/$/, "")}/${encodedSegments.join("/")}`;
-    }
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-    return `${basePath}/midi/${encodedSegments.join("/")}`;
+    return `${midiBaseUrl.replace(/\/$/, "")}/${encodedSegments.join("/")}`;
   };
 
   const downloadMidiFile = (e: React.MouseEvent, track: TrackRecord) => {

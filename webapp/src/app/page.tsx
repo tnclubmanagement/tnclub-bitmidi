@@ -180,9 +180,6 @@ function MainLandingContent() {
           <Link href="/credits" className={styles.navLink}>
             {t.credits}
           </Link>
-          <Link href="/api-docs" className={styles.navLink}>
-            API Docs
-          </Link>
 
           {/* Quick Settings Popover on Landing Page */}
           <Popover
