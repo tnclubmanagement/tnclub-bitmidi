@@ -3,6 +3,7 @@
     "shard": "tracks.sqlite",
     "start_artist": "All Artists (A — Z)",
     "end_artist": "17,256 Tracks",
-    "record_count": 17256
+    "record_count": 17256,
+    "size": 4681728
   }
 ]

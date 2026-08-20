@@ -17,7 +17,7 @@ import {
   HomeOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
-import { MasterIndexEntry, TrackRecord, createShardWorker, fetchTracksFromShard, checkRangeSupport } from "@/lib/sqlWorker";
+import { MasterIndexEntry, TrackRecord, createShardWorker, fetchTracksFromShard } from "@/lib/sqlWorker";
 import type { WorkerHttpvfs } from "sql.js-httpvfs";
 import { Midi } from "@tonejs/midi";
 import { Soundfont } from "smplr";
@@ -32,7 +32,7 @@ const ALPHA_KEYS = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 function MainStudioContent() {
   const { themeMode, setThemeMode, language, setLanguage, t } = useAppSettings();
 
-  const [, setMasterIndex] = useState<MasterIndexEntry[]>([]);
+  const [masterIndex, setMasterIndex] = useState<MasterIndexEntry[]>([]);
   const [selectedShard, setSelectedShard] = useState<string>("");
   const [tracks, setTracks] = useState<TrackRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -228,13 +228,9 @@ function MainStudioContent() {
       }
 
       try {
-        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-        const isRangeSupported = await checkRangeSupport(`${basePath}/db/${selectedShard}`);
-        if (!isRangeSupported) {
-          throw new Error("HTTP Range requests (206 Partial Content) are not supported by the server");
-        }
-
-        const worker = await createShardWorker(selectedShard);
+        const shardEntry = masterIndex.find((m) => m.shard === selectedShard);
+        const fileLength = shardEntry?.size || 4681728;
+        const worker = await createShardWorker(selectedShard, fileLength);
         if (!isMounted) return;
 
         workerRef.current = worker;
@@ -271,7 +267,7 @@ function MainStudioContent() {
     return () => {
       isMounted = false;
     };
-  }, [selectedShard, searchQuery, DEFAULT_PRESETS]);
+  }, [selectedShard, searchQuery, DEFAULT_PRESETS, masterIndex]);
 
   const handleSearch = async (value: string) => {
     setSearchQuery(value);

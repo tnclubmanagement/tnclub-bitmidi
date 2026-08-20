@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#bgGrad)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="8"/>
+
+  <!-- MIDI Audio Grid Lines -->
+  <g opacity="0.2">
+    <line x1="96" y1="256" x2="416" y2="256" stroke="#38bdf8" stroke-width="4" stroke-dasharray="8 8"/>
+    <line x1="96" y1="192" x2="416" y2="192" stroke="#a855f7" stroke-width="4" stroke-dasharray="8 8"/>
+    <line x1="96" y1="320" x2="416" y2="320" stroke="#f472b6" stroke-width="4" stroke-dasharray="8 8"/>
+  </g>
+
+  <!-- Musical Note + Equalizer Icon -->
+  <g filter="url(#glow)">
+    <path d="M 220 130 
+             C 220 130, 310 100, 344 130 
+             L 344 290 
+             A 44 44 0 1 1 300 246 
+             A 44 44 0 0 1 344 290 
+             L 344 175 
+             L 220 205 
+             L 220 330 
+             A 44 44 0 1 1 176 286 
+             A 44 44 0 0 1 220 330 
+             Z" 
+          fill="url(#iconGrad)" />
+
+    <!-- Equalizer Sound Wave Bars -->
+    <rect x="376" y="300" width="14" height="70" rx="7" fill="#38bdf8"/>
+    <rect x="402" y="250" width="14" height="120" rx="7" fill="#a855f7"/>
+    <rect x="428" y="320" width="14" height="50" rx="7" fill="#f472b6"/>
+  </g>
+</svg>
