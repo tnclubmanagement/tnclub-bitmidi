@@ -4,7 +4,7 @@ const isProd = process.env.NODE_ENV === "production";
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || (isProd ? "/tnclub-bitmidi" : "");
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: "export",
   basePath: basePath || undefined,
   assetPrefix: basePath ? `${basePath}/` : undefined,
   images: {

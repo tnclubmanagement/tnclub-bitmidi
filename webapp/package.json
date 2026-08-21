@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "cp out/api/search out/api/search.json 2>/dev/null || true",
     "start": "next start",
     "lint": "eslint"
   },
