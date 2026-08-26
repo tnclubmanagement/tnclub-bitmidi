@@ -25,6 +25,7 @@ type Props = {
   togglePlay: () => void;
   playTrack: (track: TrackRecord) => void;
   getMidiUrl: (filePath: string) => string;
+  onSeek?: (newTime: number) => void;
   formatTime: (sec: number) => string;
 };
 
@@ -298,6 +299,7 @@ export default function MultiModeVisualizerModal({
   togglePlay,
   playTrack,
   getMidiUrl,
+  onSeek,
   formatTime,
 }: Props) {
   const [visMode, setVisMode] = useState<"falling-notes" | "sheet" | "piano-roll">("falling-notes");
@@ -490,6 +492,7 @@ export default function MultiModeVisualizerModal({
             min={0}
             max={totalDuration || 100}
             value={currentTime}
+            onChange={onSeek}
             tooltip={{ formatter: (v) => formatTime(v || 0) }}
           />
 

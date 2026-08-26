@@ -2,8 +2,8 @@
   {
     "shard": "tracks.sqlite",
     "start_artist": "All Artists (A — Z)",
-    "end_artist": "17,256 Tracks",
+    "end_artist": "17256 Tracks",
     "record_count": 17256,
-    "size": 4681728
+    "size": 3964928
   }
 ]

@@ -5,6 +5,7 @@ export interface TrackRecord {
   title: string;
   artist: string;
   file_path: string;
+  duration?: number;
 }
 
 export interface MasterIndexEntry {
@@ -59,7 +60,7 @@ export async function checkRangeSupport(url: string): Promise<boolean> {
 }
 
 export async function fetchTracksFromShard(worker: WorkerHttpvfs, query: string = ""): Promise<TrackRecord[]> {
-  let sql = "SELECT id, title, artist, file_path FROM tracks";
+  let sql = "SELECT id, title, artist, file_path, duration FROM tracks";
   if (query.trim().length > 0) {
     sql += ` WHERE title LIKE '%${query.replace(/'/g, "''")}%' OR artist LIKE '%${query.replace(/'/g, "''")}%'`;
   }

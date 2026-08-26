@@ -96,11 +96,11 @@ function MainStudioContent() {
 
   // Preset Curated Playlists (Spotify / Apple Music Style)
   const DEFAULT_PRESETS: TrackRecord[] = useMemo(() => [
-    { id: "preset_1", title: "Amish Paradise", artist: "\"Weird Al\" Yankovic", file_path: "clean_midi/Yankovic, \"Weird Al\"/Amish Paradise.mid" },
-    { id: "preset_2", title: "A Night To Remember", artist: "911", file_path: "clean_midi/911/A Night To Remember.mid" },
-    { id: "preset_3", title: "Don't Look Back In Anger", artist: "Oasis", file_path: "clean_midi/Oasis/Don't Look Back In Anger.mid" },
-    { id: "preset_4", title: "Bohemian Rhapsody", artist: "Queen", file_path: "clean_midi/Queen/Bohemian Rhapsody.mid" },
-    { id: "preset_5", title: "Canon in D", artist: "Johann Pachelbel", file_path: "clean_midi/Pachelbel/Canon in D.mid" },
+    { id: "preset_1", title: "Dreadlock Holiday", artist: "10cc", file_path: "clean_midi/10cc/Dreadlock Holiday.mid", duration: 309.95 },
+    { id: "preset_2", title: "Bohemian Rhapsody", artist: "Queen", file_path: "clean_midi/Queen/Bohemian Rhapsody.mid", duration: 354.0 },
+    { id: "preset_3", title: "Caught Up In You", artist: ".38 Special", file_path: "clean_midi/.38 Special/Caught Up In You.mid", duration: 276.0 },
+    { id: "preset_4", title: "Dancing Queen", artist: "ABBA", file_path: "clean_midi/ABBA/Dancing Queen.mid", duration: 230.0 },
+    { id: "preset_5", title: "A Campfire Song", artist: "10,000 Maniacs", file_path: "clean_midi/10,000 Maniacs/A Campfire Song.mid", duration: 205.0 },
   ], []);
 
   // Playlist & Favorites State (SSR Hydration Safe)
@@ -281,8 +281,14 @@ function MainStudioContent() {
   };
 
   const getMidiUrl = (filePath: string) => {
-    const encodedSegments = filePath.split("/").map((segment) => encodeURIComponent(segment));
-    // Supabase public storage bucket "midi" – ensure the bucket exists and is public.
+    // Sanitize any accidental absolute prefix or redundant clean_midi/ folder, strip quotes
+    const cleanPath = (filePath || "")
+      .replace(/^.*clean_midi\//, "")
+      .replace(/\\/g, "/")
+      .replace(/"/g, "")
+      .replace(/^\/+/, "");
+    const encodedSegments = cleanPath.split("/").map((segment) => encodeURIComponent(segment));
+    // Supabase public storage bucket "midi"
     const midiBaseUrl =
       process.env.NEXT_PUBLIC_MIDI_BASE_URL ||
       "https://oczfmoquiugfdksddwuf.supabase.co/storage/v1/object/public/midi";
@@ -313,11 +319,6 @@ function MainStudioContent() {
     }
   };
 
-  const clearActiveNotes = () => {
-    pausePlayback();
-    setCurrentTime(0);
-  };
-
   const initSoundfont = async () => {
     if (!audioCtxRef.current) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -337,9 +338,10 @@ function MainStudioContent() {
     }
   };
 
-  const playTrack = async (track: TrackRecord) => {
+  const playTrack = async (track: TrackRecord, startFromTime: number = 0) => {
+    pausePlayback();
     setCurrentTrack(track);
-    clearActiveNotes();
+    setCurrentTime(startFromTime);
 
     try {
       setAudioStatus("Loading SoundFont & MIDI...");
@@ -375,8 +377,8 @@ function MainStudioContent() {
 
       // High-Precision Time Sync Engine (AudioContext Precise Clock)
       const audioCtx = audioCtxRef.current;
-      const audioStartCtxTime = audioCtx ? audioCtx.currentTime - currentTime : 0;
-      const initialCurrentTime = currentTime;
+      const audioStartCtxTime = audioCtx ? audioCtx.currentTime - startFromTime : 0;
+      const initialCurrentTime = startFromTime;
       let fallbackTs = 0;
 
       playbackTimerRef.current = window.setInterval(() => {
@@ -427,7 +429,7 @@ function MainStudioContent() {
         const instType = getInstType(t.channel || 0, t.name || "", programNumber);
 
         t.notes.forEach((note) => {
-          const delayMs = (note.time - currentTime) * 1000;
+          const delayMs = (note.time - startFromTime) * 1000;
           if (delayMs < 0) return; // Skip notes in the past
 
           const timeoutId = window.setTimeout(() => {
@@ -445,15 +447,15 @@ function MainStudioContent() {
         });
       });
 
-      const totalDurationMs = (midi.duration - currentTime) * 1000;
+      const totalDurationMs = (midi.duration - startFromTime) * 1000;
       const endTimeoutId = window.setTimeout(() => {
         if (loopMode === "one") {
-          playTrack(track);
+          playTrack(track, 0);
         } else {
           // Auto play next track in playlist if playing from playlist
           const playlistIndex = playlist.findIndex((t) => t.id === track.id);
           if (playlistIndex !== -1 && playlistIndex < playlist.length - 1) {
-            playTrack(playlist[playlistIndex + 1]);
+            playTrack(playlist[playlistIndex + 1], 0);
           } else {
             setIsPlaying(false);
             setActiveMidiNote(null);
@@ -476,7 +478,14 @@ function MainStudioContent() {
       setIsPlaying(false);
       setAudioStatus("Paused");
     } else if (currentTrack) {
-      playTrack(currentTrack);
+      playTrack(currentTrack, currentTime);
+    }
+  };
+
+  const handleSeek = (newTime: number) => {
+    setCurrentTime(newTime);
+    if (currentTrack && isPlaying) {
+      playTrack(currentTrack, newTime);
     }
   };
 
@@ -836,6 +845,7 @@ function MainStudioContent() {
           setLoopMode={setLoopMode}
           setIsMuted={setIsMuted}
           setVolume={setVolume}
+          onSeek={handleSeek}
           onOpenPlaylist={() => setIsPlaylistOpen(true)}
           onOpenStage={() => {
             if (currentTrack) {
@@ -860,6 +870,7 @@ function MainStudioContent() {
           togglePlay={togglePlay}
           playTrack={playTrack}
           getMidiUrl={getMidiUrl}
+          onSeek={handleSeek}
           formatTime={formatTime}
         />
       </div>

@@ -30,6 +30,7 @@ type FooterPlayerProps = {
   setVolume: (vol: number) => void;
   onOpenPlaylist: () => void;
   onOpenStage: () => void;
+  onSeek?: (newTime: number) => void;
   formatTime: (sec: number) => string;
 };
 
@@ -48,6 +49,7 @@ export default function FooterPlayer({
   setVolume,
   onOpenPlaylist,
   onOpenStage,
+  onSeek,
   formatTime,
 }: FooterPlayerProps) {
   const { t } = useAppSettings();
@@ -100,6 +102,7 @@ export default function FooterPlayer({
             min={0}
             max={totalDuration || 100}
             value={currentTime}
+            onChange={onSeek}
             tooltip={{ formatter: (val) => formatTime(val || 0) }}
             disabled={!currentTrack}
           />

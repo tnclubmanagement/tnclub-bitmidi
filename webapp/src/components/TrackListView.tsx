@@ -62,6 +62,13 @@ function EqualizerWave() {
   );
 }
 
+function formatDuration(seconds?: number): string {
+  if (!seconds || seconds <= 0 || isNaN(seconds)) return "--:--";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+}
+
 // 1. Table Row Strategy
 function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, searchQuery, playTrack, togglePlaylistTrack, downloadMidiFile, onOpenStage }: TrackItemProps) {
   const { t } = useAppSettings();
@@ -74,7 +81,7 @@ function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, searchQ
       <div className={styles.colTitle}>{highlightText(track.title, searchQuery)}</div>
       <div className={styles.colArtist}>{highlightText(track.artist, searchQuery)}</div>
       <div className={styles.colDuration}>
-        <ClockCircleOutlined /> 3:24
+        <ClockCircleOutlined /> {formatDuration(track.duration)}
       </div>
       <div className={styles.colAction}>
         <Tooltip title={t.openStageVisualizer}>
@@ -174,7 +181,7 @@ function GridCardItem({ index, track, isSelected, isPlaying, inPlaylist, playTra
       <div className={styles.gridCardArtist}>{track.artist}</div>
 
       <div className={styles.cardMetaRow}>
-        <span><ClockCircleOutlined /> 3:24</span>
+        <span><ClockCircleOutlined /> {formatDuration(track.duration)}</span>
         <span>Audio Track</span>
       </div>
 
