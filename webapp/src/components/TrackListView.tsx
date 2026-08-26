@@ -69,17 +69,69 @@ function formatDuration(seconds?: number): string {
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 }
 
+function getInstrumentBadge(primary?: string) {
+  switch (primary?.toLowerCase()) {
+    case "piano":
+      return { icon: "🎹", label: "Piano", color: "#0284c7" };
+    case "guitar":
+      return { icon: "🎸", label: "Guitar", color: "#d97706" };
+    case "bass":
+      return { icon: "🎸", label: "Bass", color: "#7e22ce" };
+    case "strings":
+      return { icon: "🎻", label: "Strings", color: "#be185d" };
+    case "brass":
+      return { icon: "🎺", label: "Brass", color: "#eab308" };
+    case "drums":
+      return { icon: "🥁", label: "Drums", color: "#f97316" };
+    case "synth":
+      return { icon: "🎧", label: "Synth", color: "#06b6d4" };
+    case "organ":
+      return { icon: "🎹", label: "Organ", color: "#8b5cf6" };
+    case "flute/sax":
+      return { icon: "🎷", label: "Sax/Flute", color: "#10b981" };
+    default:
+      return { icon: "🎵", label: primary || "General", color: "#64748b" };
+  }
+}
+
 // 1. Table Row Strategy
 function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, searchQuery, playTrack, togglePlaylistTrack, downloadMidiFile, onOpenStage }: TrackItemProps) {
   const { t } = useAppSettings();
+  const instBadge = getInstrumentBadge(track.primary_instrument);
+
   return (
     <div
       className={`${styles.tableRow} ${isSelected ? styles.tableRowActive : ""}`}
       onClick={() => playTrack(track)}
     >
       <div className={styles.colNo}>{isSelected && isPlaying ? <EqualizerWave /> : `#${index + 1}`}</div>
-      <div className={styles.colTitle}>{highlightText(track.title, searchQuery)}</div>
+      <div className={styles.colTitle}>
+        <span>{highlightText(track.title, searchQuery)}</span>
+      </div>
       <div className={styles.colArtist}>{highlightText(track.artist, searchQuery)}</div>
+      <div className={styles.colInstrument}>
+        {track.primary_instrument ? (
+          <span
+            style={{
+              fontSize: "0.74rem",
+              padding: "2px 8px",
+              borderRadius: 6,
+              background: "rgba(56, 189, 248, 0.12)",
+              color: "#38bdf8",
+              border: "1px solid rgba(56, 189, 248, 0.25)",
+              fontWeight: 600,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {instBadge.icon} {track.primary_instrument}
+            {track.has_drums ? " • 🥁" : ""}
+          </span>
+        ) : (
+          <span style={{ fontSize: "0.75rem", color: "#64748b" }}>—</span>
+        )}
+      </div>
       <div className={styles.colDuration}>
         <ClockCircleOutlined /> {formatDuration(track.duration)}
       </div>
@@ -115,6 +167,8 @@ function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, searchQ
 
 // 2. Compact Row Strategy
 function CompactRowItem({ index, track, isSelected, isPlaying, inPlaylist, playTrack, togglePlay, togglePlaylistTrack, onOpenStage }: TrackItemProps) {
+  const instBadge = getInstrumentBadge(track.primary_instrument);
+
   return (
     <div
       className={`${styles.compactRow} ${isSelected ? styles.compactRowActive : ""}`}
@@ -125,6 +179,11 @@ function CompactRowItem({ index, track, isSelected, isPlaying, inPlaylist, playT
       </div>
       <div style={{ flex: 2, fontWeight: 600, color: "#f8fafc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {track.title}
+        {track.primary_instrument && (
+          <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "#38bdf8" }}>
+            {instBadge.icon}
+          </span>
+        )}
       </div>
       <div style={{ flex: 1.5, color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {track.artist}
@@ -166,6 +225,8 @@ function CompactRowItem({ index, track, isSelected, isPlaying, inPlaylist, playT
 
 // 3. Grid Card Strategy
 function GridCardItem({ index, track, isSelected, isPlaying, inPlaylist, playTrack, togglePlay, togglePlaylistTrack, downloadMidiFile, onOpenStage }: TrackItemProps) {
+  const instBadge = getInstrumentBadge(track.primary_instrument);
+
   return (
     <div
       className={`${styles.gridCard} ${isSelected ? styles.gridCardActive : ""}`}
@@ -175,14 +236,30 @@ function GridCardItem({ index, track, isSelected, isPlaying, inPlaylist, playTra
         <span className={styles.cardNumberBadge}>
           {isSelected && isPlaying ? <EqualizerWave /> : `No. #${index + 1}`}
         </span>
-        <span className={styles.formatBadge}>MIDI (.mid)</span>
+        {track.primary_instrument ? (
+          <span
+            style={{
+              fontSize: "0.72rem",
+              padding: "2px 8px",
+              borderRadius: 6,
+              background: "rgba(56, 189, 248, 0.12)",
+              color: "#38bdf8",
+              border: "1px solid rgba(56, 189, 248, 0.25)",
+              fontWeight: 600,
+            }}
+          >
+            {instBadge.icon} {track.primary_instrument}
+          </span>
+        ) : (
+          <span className={styles.formatBadge}>MIDI (.mid)</span>
+        )}
       </div>
       <div className={styles.gridCardTitle}>{track.title}</div>
       <div className={styles.gridCardArtist}>{track.artist}</div>
 
       <div className={styles.cardMetaRow}>
         <span><ClockCircleOutlined /> {formatDuration(track.duration)}</span>
-        <span>Audio Track</span>
+        <span>{track.tracks_count ? `${track.tracks_count} Tracks` : "Audio Track"} {track.has_drums ? "• 🥁" : ""}</span>
       </div>
 
       <div className={styles.gridCardFooter}>
@@ -365,6 +442,8 @@ export default function TrackListView({
     );
   };
 
+  const { t } = useAppSettings();
+
   if (strategy.isGrid) {
     return (
       <div className={styles.gridContainerWrapper}>
@@ -381,8 +460,18 @@ export default function TrackListView({
 
   return (
     <div className={styles.tableContainer}>
+      <div className={styles.tableHeaderRow}>
+        <div className={styles.colNo}>{t.thIndex || "#"}</div>
+        <div className={styles.colTitle}>{t.thTitle || "Tên bài hát / Title"}</div>
+        <div className={styles.colArtist}>{t.thArtist || "Nghệ sĩ / Artist"}</div>
+        <div className={styles.colInstrument}>{t.thInstrument || "Nhạc cụ / Instrument"}</div>
+        <div className={styles.colDuration}>{t.thDuration || "Thời lượng"}</div>
+        <div className={styles.colAction} style={{ justifyContent: "center" }}>
+          {t.thActions || "Thao tác"}
+        </div>
+      </div>
       <Virtuoso
-        style={{ height: "100%", width: "100%" }}
+        style={{ height: "calc(100% - 38px)", width: "100%" }}
         totalCount={tracks.length}
         itemContent={renderItem}
       />

@@ -49,22 +49,24 @@ CREATE TABLE tracks (
     title TEXT NOT NULL,
     artist TEXT NOT NULL,
     file_path TEXT NOT NULL,
-    duration REAL NOT NULL DEFAULT 0
+    duration REAL NOT NULL DEFAULT 0,
+    instruments TEXT NOT NULL DEFAULT '[]',
+    primary_instrument TEXT NOT NULL DEFAULT '',
+    tracks_count INTEGER NOT NULL DEFAULT 1,
+    has_drums INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_artist ON tracks(artist);
 CREATE INDEX idx_title ON tracks(title);
+CREATE INDEX idx_primary_inst ON tracks(primary_instrument);
 ```
 
 ---
 
 ## 2. Kiểu Dữ Liệu Chuẩn (TypeScript Types)
 
-Định nghĩa các interface độc lập, có thể copy trực tiếp vào bất kỳ dự án nào:
+Lưu file này tại `types/midi.ts` hoặc `lib/sqlWorker.ts`:
 
 ```typescript
-/**
- * Bản ghi bài hát MIDI tiêu chuẩn
- */
 export interface TrackRecord {
   /** Định danh duy nhất (UUID) */
   id: string;
@@ -83,6 +85,18 @@ export interface TrackRecord {
 
   /** Thời lượng bài hát tính bằng giây */
   duration?: number;
+
+  /** Danh sách nhạc cụ JSON, ví dụ: '["piano","bass","drums"]' */
+  instruments?: string;
+
+  /** Nhạc cụ chủ đạo nhiều nốt nhất (vd: "Piano", "Guitar", "Bass", "Strings", "Drums", "Synth") */
+  primary_instrument?: string;
+
+  /** Số lượng track nhạc có nốt */
+  tracks_count?: number;
+
+  /** 1 = Có bộ trống, 0 = Không có trống */
+  has_drums?: boolean | number;
 }
 
 /**

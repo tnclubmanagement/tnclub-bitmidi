@@ -533,6 +533,7 @@ function MainStudioContent() {
   };
 
   const [selectedGenre, setSelectedGenre] = useState<string>("ALL");
+  const [selectedInstrument, setSelectedInstrument] = useState<string>("ALL");
   const [selectedCountry, setSelectedCountry] = useState<string>("ALL");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
 
@@ -557,6 +558,17 @@ function MainStudioContent() {
         if (gLower === "electronic") return fullStr.includes("synth") || fullStr.includes("electro") || fullStr.includes("techno") || fullStr.includes("disco");
         if (gLower === "soundtrack") return fullStr.includes("theme") || fullStr.includes("movie") || fullStr.includes("game") || fullStr.includes("ost");
         return fullStr.includes(gLower);
+      });
+    }
+
+    if (selectedInstrument !== "ALL") {
+      const instLower = selectedInstrument.toLowerCase();
+      result = result.filter((t) => {
+        if (instLower === "drums") return Boolean(t.has_drums);
+        return (
+          t.primary_instrument?.toLowerCase().includes(instLower) ||
+          t.instruments?.toLowerCase().includes(`"${instLower}"`)
+        );
       });
     }
 
@@ -591,7 +603,7 @@ function MainStudioContent() {
     });
 
     return result;
-  }, [tracks, selectedGenre, selectedAlpha, selectedCountry, sortBy, showFavoritesOnly, playlist]);
+  }, [tracks, selectedGenre, selectedInstrument, selectedAlpha, selectedCountry, sortBy, showFavoritesOnly, playlist]);
 
   return (
     <ConfigProvider theme={getAntdTheme()}>
@@ -695,6 +707,23 @@ function MainStudioContent() {
                     { value: "Classical", label: t.classical },
                     { value: "Electronic", label: t.electronic },
                     { value: "Soundtrack", label: t.soundtrack },
+                  ]}
+                />
+
+                <Select
+                  value={selectedInstrument}
+                  style={{ width: 140 }}
+                  onChange={(val) => setSelectedInstrument(val)}
+                  options={[
+                    { value: "ALL", label: t.allInstruments },
+                    { value: "Piano", label: t.instPiano },
+                    { value: "Guitar", label: t.instGuitar },
+                    { value: "Bass", label: t.instBass },
+                    { value: "Strings", label: t.instStrings },
+                    { value: "Brass", label: t.instBrass },
+                    { value: "drums", label: t.instDrums },
+                    { value: "Synth", label: t.instSynth },
+                    { value: "Organ", label: t.instOrgan },
                   ]}
                 />
 

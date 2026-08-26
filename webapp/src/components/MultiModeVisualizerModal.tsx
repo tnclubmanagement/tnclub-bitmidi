@@ -174,17 +174,61 @@ class CanvasPainter {
     });
   }
 
-  static drawFallingNotesBackground(ctx: CanvasRenderingContext2D, width: number, height: number) {
-    ctx.fillStyle = "#0f172a";
+  static drawFallingNotesBackground(ctx: CanvasRenderingContext2D, width: number, height: number, hitY: number) {
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+    bgGrad.addColorStop(0, "#080d1a");
+    bgGrad.addColorStop(1, "#0f172a");
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+    // Subtle lane dividers
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
     ctx.lineWidth = 1;
-    for (let x = 0; x < width; x += 30) {
+    const keyWidth = width / 88;
+    for (let i = 0; i < 88; i++) {
+      const x = i * keyWidth;
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
+      ctx.lineTo(x, hitY);
       ctx.stroke();
+    }
+
+    // Glowing Neon Hit Line
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.8)";
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "#38bdf8";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(0, hitY);
+    ctx.lineTo(width, hitY);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Bottom Piano Keyboard Bar background
+    ctx.fillStyle = "#090d16";
+    ctx.fillRect(0, hitY, width, height - hitY);
+  }
+
+  static drawKeyboard(ctx: CanvasRenderingContext2D, width: number, height: number, hitY: number, activeKeys: Map<number, string>) {
+    const keyWidth = width / 88;
+    const kbHeight = height - hitY;
+
+    for (let midi = 21; midi <= 108; midi++) {
+      const idx = midi - 21;
+      const x = idx * keyWidth;
+      const isBlack = [1, 3, 6, 8, 10].includes(midi % 12);
+      const activeColor = activeKeys.get(midi);
+
+      if (activeColor) {
+        ctx.fillStyle = activeColor;
+        ctx.shadowColor = activeColor;
+        ctx.shadowBlur = 12;
+        ctx.fillRect(x, hitY + 2, keyWidth - 1, kbHeight - 4);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = isBlack ? "#1e293b" : "#334155";
+        ctx.fillRect(x, hitY + 2, keyWidth - 1, isBlack ? kbHeight * 0.65 : kbHeight - 4);
+      }
     }
   }
 }
@@ -382,11 +426,12 @@ export default function MultiModeVisualizerModal({
       (ctx: CanvasRenderingContext2D, width: number, height: number) => void
     > = {
       "falling-notes": (ctx, width, height) => {
-        CanvasPainter.drawFallingNotesBackground(ctx, width, height);
+        const hitY = height - 42;
+        CanvasPainter.drawFallingNotesBackground(ctx, width, height, hitY);
 
-        const speed = 120;
-        const renderedNoteKeys = new Set<string>();
-        const keyWidth = Math.max(8, width / 88);
+        const speed = 140; // px per second
+        const keyWidth = width / 88;
+        const activeKeys = new Map<number, string>();
 
         midiData.tracks.forEach((t) => {
           const programNumber = t.instrument?.number || 0;
@@ -397,25 +442,25 @@ export default function MultiModeVisualizerModal({
           const isDrum = cat === "drums";
 
           t.notes.forEach((n) => {
-            const timeQuantized = Math.round(n.time * 20) / 20;
-            const noteKey = `${cat}-${n.midi}-${timeQuantized}`;
-            if (renderedNoteKeys.has(noteKey)) return;
-            renderedNoteKeys.add(noteKey);
+            if (n.midi < 21 || n.midi > 108) return;
+            const noteX = ((n.midi - 21) / 88) * width;
+            const headY = hitY - (n.time - currentTime) * speed;
+            const noteHeight = isDrum ? 10 : Math.min(220, Math.max(14, n.duration * speed));
+            const topY = headY - noteHeight;
 
-            const noteX = Math.min(width - keyWidth, Math.max(0, ((n.midi - 21) / 88) * width));
-            const noteY = height - (n.time - currentTime) * speed - 20;
-            const noteHeight = isDrum ? 8 : Math.min(180, Math.max(12, n.duration * speed));
-
-            if (noteY + noteHeight > 0 && noteY < height) {
-              const timeDiff = currentTime - n.time;
-              const isHit = timeDiff >= -0.05 && timeDiff <= Math.max(0.18, n.duration);
+            // Only draw notes currently visible on the falling stage
+            if (topY < height && headY > 0) {
+              const isHit = currentTime >= n.time - 0.05 && currentTime <= n.time + n.duration + 0.05;
+              if (isHit) {
+                activeKeys.set(n.midi, palette.hitFill);
+              }
 
               ctx.fillStyle = isHit ? palette.hitFill : palette.normalFill;
-              ctx.shadowBlur = isHit ? 10 : 0;
               ctx.shadowColor = palette.stroke;
+              ctx.shadowBlur = isHit ? 14 : 2;
 
               ctx.beginPath();
-              ctx.roundRect(noteX, noteY, Math.max(6, keyWidth - 2), noteHeight, 4);
+              ctx.roundRect(noteX + 1, topY, Math.max(4, keyWidth - 2), noteHeight, 4);
               ctx.fill();
 
               ctx.strokeStyle = palette.stroke;
@@ -425,6 +470,9 @@ export default function MultiModeVisualizerModal({
           });
         });
         ctx.shadowBlur = 0;
+
+        // Draw interactive bottom keyboard with active key illumination
+        CanvasPainter.drawKeyboard(ctx, width, height, hitY, activeKeys);
       },
 
       sheet: (ctx, width) => {

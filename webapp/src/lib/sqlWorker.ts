@@ -6,6 +6,10 @@ export interface TrackRecord {
   artist: string;
   file_path: string;
   duration?: number;
+  instruments?: string;
+  primary_instrument?: string;
+  tracks_count?: number;
+  has_drums?: boolean | number;
 }
 
 export interface MasterIndexEntry {
@@ -59,11 +63,32 @@ export async function checkRangeSupport(url: string): Promise<boolean> {
   }
 }
 
-export async function fetchTracksFromShard(worker: WorkerHttpvfs, query: string = ""): Promise<TrackRecord[]> {
-  let sql = "SELECT id, title, artist, file_path, duration FROM tracks";
+export async function fetchTracksFromShard(
+  worker: WorkerHttpvfs,
+  query: string = "",
+  instrumentFilter: string = "ALL"
+): Promise<TrackRecord[]> {
+  let sql = "SELECT id, title, artist, file_path, duration, instruments, primary_instrument, tracks_count, has_drums FROM tracks";
+  const conditions: string[] = [];
+
   if (query.trim().length > 0) {
-    sql += ` WHERE title LIKE '%${query.replace(/'/g, "''")}%' OR artist LIKE '%${query.replace(/'/g, "''")}%'`;
+    const q = query.replace(/'/g, "''");
+    conditions.push(`(title LIKE '%${q}%' OR artist LIKE '%${q}%')`);
   }
+
+  if (instrumentFilter && instrumentFilter !== "ALL") {
+    if (instrumentFilter === "drums") {
+      conditions.push("has_drums = 1");
+    } else {
+      const inst = instrumentFilter.toLowerCase().replace(/'/g, "''");
+      conditions.push(`(LOWER(primary_instrument) LIKE '%${inst}%' OR LOWER(instruments) LIKE '%"${inst}"%')`);
+    }
+  }
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(" AND ")}`;
+  }
+
   sql += " ORDER BY artist ASC, title ASC LIMIT 20000;";
 
   const result = await worker.db.query(sql);

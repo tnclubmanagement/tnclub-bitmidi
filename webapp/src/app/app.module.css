@@ -792,6 +792,13 @@
   text-overflow: ellipsis;
 }
 
+.colInstrument {
+  width: 150px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .colDuration {
   width: 90px;
   font-size: 0.8rem;
@@ -800,6 +807,21 @@
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.tableHeaderRow {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .colFormat {
