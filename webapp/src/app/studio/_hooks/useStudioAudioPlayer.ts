@@ -1,16 +1,40 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { message } from "antd";
-import { Soundfont } from "smplr";
 import { TrackRecord } from "@/lib/sqlWorker";
 import { loadParsedMidi } from "@/lib/midiLoader";
 import { DEFAULT_STUDIO_SETTINGS, getStudioSettings, saveStudioSettings } from "../_lib/studioStorage";
+import { StudioAudioEngine, ScheduledMidiNote } from "../_lib/studioAudioEngine";
 
 interface UseStudioAudioPlayerProps {
   playlist: TrackRecord[];
   tracks: TrackRecord[];
   enabledInstruments: Record<string, boolean>;
+}
+
+// Helper: Classify Instrument Type
+function getInstType(channel: number, name: string = "", program: number = 0): string {
+  if (channel === 9 || channel === 10) return "drums";
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes("bass") || (program >= 32 && program <= 39)) return "bass";
+  if (
+    nameLower.includes("string") ||
+    nameLower.includes("brass") ||
+    nameLower.includes("pad") ||
+    nameLower.includes("guitar") ||
+    nameLower.includes("synth") ||
+    nameLower.includes("organ") ||
+    nameLower.includes("flute") ||
+    nameLower.includes("sax") ||
+    (program >= 24 && program <= 31) ||
+    (program >= 40 && program <= 55) ||
+    (program >= 56 && program <= 79) ||
+    (program >= 80 && program <= 103)
+  ) {
+    return "strings";
+  }
+  return "piano";
 }
 
 export function useStudioAudioPlayer({
@@ -34,6 +58,9 @@ export function useStudioAudioPlayer({
 
   const tempoBpmRef = useRef<number>(tempoBpm);
   const originalBpmRef = useRef<number>(originalBpm);
+  const loopModeRef = useRef<"off" | "one">(loopMode);
+  const playlistRef = useRef<TrackRecord[]>(playlist);
+  const currentTrackRef = useRef<TrackRecord | null>(currentTrack);
 
   useEffect(() => {
     tempoBpmRef.current = tempoBpm;
@@ -43,6 +70,19 @@ export function useStudioAudioPlayer({
     originalBpmRef.current = originalBpm;
   }, [originalBpm]);
 
+  useEffect(() => {
+    loopModeRef.current = loopMode;
+  }, [loopMode]);
+
+  useEffect(() => {
+    playlistRef.current = playlist;
+  }, [playlist]);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  // Load saved settings from storage
   useEffect(() => {
     const settings = getStudioSettings();
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -56,22 +96,49 @@ export function useStudioAudioPlayer({
     }
   }, []);
 
-  // Worker & Audio Refs
-  const soundfontRef = useRef<Soundfont | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const activeTimeoutsRef = useRef<number[]>([]);
-  const playbackTimerRef = useRef<number | null>(null);
+  // Singleton Audio Engine Instance
+  const engine = useMemo(() => StudioAudioEngine.getInstance(), []);
 
-  const nextScheduleIndexRef = useRef<number>(0);
-  const sortedPlaybackNotesRef = useRef<
-    Array<{ midi: number; time: number; duration: number; velocity: number; instType: string }>
-  >([]);
+  // Track playback state changes
+  const playTrackRef = useRef<(track: TrackRecord, startFromTime?: number, soloTrackIndex?: number | "all") => Promise<void>>(
+    async () => {}
+  );
 
-  // Keep enabledInstruments in a Ref to avoid re-triggering component re-renders
-  const enabledInstrumentsRef = useRef(enabledInstruments);
+  // Wire Singleton Audio Engine Listeners
   useEffect(() => {
-    enabledInstrumentsRef.current = enabledInstruments;
-  }, [enabledInstruments]);
+    engine.setListeners({
+      onTick: (currTime, activeNote) => {
+        setCurrentTime(currTime);
+        setActiveMidiNote(activeNote);
+      },
+      onStatusChange: (status) => {
+        setAudioStatus(status);
+      },
+      onError: (err) => {
+        console.error("Audio Engine Error:", err);
+        setAudioStatus(`Error: ${err.message}`);
+        setIsPlaying(false);
+      },
+      onTrackEnded: () => {
+        const track = currentTrackRef.current;
+        if (!track) return;
+
+        if (loopModeRef.current === "one") {
+          playTrackRef.current(track, 0);
+        } else {
+          const pList = playlistRef.current;
+          const playlistIndex = pList.findIndex((t) => t.id === track.id);
+          if (playlistIndex !== -1 && playlistIndex < pList.length - 1) {
+            playTrackRef.current(pList[playlistIndex + 1], 0);
+          } else {
+            setIsPlaying(false);
+            setActiveMidiNote(null);
+            setAudioStatus("Finished");
+          }
+        }
+      },
+    });
+  }, [engine]);
 
   const handleVolumeChange = useCallback((vol: number) => {
     setVolume(vol);
@@ -89,75 +156,25 @@ export function useStudioAudioPlayer({
   }, []);
 
   const pausePlayback = useCallback(() => {
-    activeTimeoutsRef.current.forEach((id) => clearTimeout(id));
-    activeTimeoutsRef.current = [];
-    if (playbackTimerRef.current) {
-      clearInterval(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
-    sortedPlaybackNotesRef.current = [];
-    nextScheduleIndexRef.current = 0;
+    engine.pause();
+    setIsPlaying(false);
     setActiveMidiNote(null);
-    if (soundfontRef.current) {
-      soundfontRef.current.stop();
-    }
-    if (audioCtxRef.current && audioCtxRef.current.state === "running") {
-      audioCtxRef.current.suspend();
-    }
-  }, []);
-
-  const initSoundfont = useCallback(async () => {
-    if (!audioCtxRef.current) {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audioCtxRef.current = new AudioCtx();
-    }
-    if (audioCtxRef.current.state === "suspended") {
-      await audioCtxRef.current.resume();
-    }
-
-    if (!soundfontRef.current && audioCtxRef.current) {
-      setAudioStatus("Loading Piano SoundFont...");
-      soundfontRef.current = new Soundfont(audioCtxRef.current, {
-        instrument: "acoustic_grand_piano",
-      });
-      await soundfontRef.current.load;
-      setAudioStatus("SoundFont Ready");
-    }
-  }, []);
+    setAudioStatus("Paused");
+  }, [engine]);
 
   const playSingleNote = useCallback(
     async (midiNote: number) => {
       try {
-        await initSoundfont();
-        if (soundfontRef.current && audioCtxRef.current) {
-          const targetVol = isMuted ? 0 : volume / 100;
-          soundfontRef.current.start({
-            note: midiNote,
-            velocity: Math.max(20, Math.floor(0.85 * 127 * targetVol)),
-            duration: 0.6,
-            time: audioCtxRef.current.currentTime,
-          });
-          setActiveMidiNote(midiNote);
-          setTimeout(() => {
-            setActiveMidiNote((prev) => (prev === midiNote ? null : prev));
-          }, 350);
-        }
+        await engine.playSingleNote(midiNote, volume, isMuted);
+        setActiveMidiNote(midiNote);
+        setTimeout(() => {
+          setActiveMidiNote((prev) => (prev === midiNote ? null : prev));
+        }, 350);
       } catch (err) {
         console.warn("Failed to play single note", err);
       }
     },
-    [initSoundfont, isMuted, volume]
-  );
-
-  const currentTrackRef = useRef<TrackRecord | null>(currentTrack);
-  useEffect(() => {
-    currentTrackRef.current = currentTrack;
-  }, [currentTrack]);
-
-  const playTrackRef = useRef<(track: TrackRecord, startFromTime?: number, soloTrackIndex?: number | "all") => Promise<void>>(
-    async () => {}
+    [engine, isMuted, volume]
   );
 
   const playTrack = useCallback(
@@ -176,8 +193,6 @@ export function useStudioAudioPlayer({
 
       try {
         setAudioStatus("Loading SoundFont & MIDI...");
-        await initSoundfont();
-
         const midi = await loadParsedMidi(track.file_path);
         setTotalDuration(midi.duration);
         setAudioStatus("Playing MIDI Audio...");
@@ -189,43 +204,8 @@ export function useStudioAudioPlayer({
         setOriginalBpm(trackBpm);
         originalBpmRef.current = trackBpm;
 
-        // High-Precision Native Web Audio Engine (Microsecond-precise C++ clock)
-        const audioCtx = audioCtxRef.current;
-        if (audioCtx && audioCtx.state === "suspended") {
-          await audioCtx.resume();
-        }
         const currentBpm = tempoBpmRef.current || trackBpm;
         const speed = Math.max(0.2, Math.min(4.0, currentBpm / trackBpm));
-        const audioStartCtxTime = audioCtx ? audioCtx.currentTime : 0;
-        const initialCurrentTime = actualStartTime;
-        let fallbackTs = 0;
-
-        // Helper: Classify Instrument Type
-        const getInstType = (channel: number, name: string = "", program: number = 0) => {
-          if (channel === 9 || channel === 10) return "drums";
-          const nameLower = name.toLowerCase();
-          if (nameLower.includes("bass") || (program >= 32 && program <= 39)) return "bass";
-          if (
-            nameLower.includes("string") ||
-            nameLower.includes("brass") ||
-            nameLower.includes("pad") ||
-            nameLower.includes("guitar") ||
-            nameLower.includes("synth") ||
-            nameLower.includes("organ") ||
-            nameLower.includes("flute") ||
-            nameLower.includes("sax") ||
-            (program >= 24 && program <= 31) ||
-            (program >= 40 && program <= 55) ||
-            (program >= 56 && program <= 79) ||
-            (program >= 80 && program <= 103)
-          ) {
-            return "strings";
-          }
-          return "piano";
-        };
-
-        // Schedule notes with Volume & Instrument Filter Control
-        const targetVolume = isMuted ? 0 : volume / 100;
 
         // Filter target tracks if solo mode is requested
         let targetTracks = midi.tracks.filter((t) => t.notes.length > 0);
@@ -236,13 +216,7 @@ export function useStudioAudioPlayer({
         }
 
         // Prepare and sort all playback notes chronologically
-        const notesToPlay: Array<{
-          midi: number;
-          time: number;
-          duration: number;
-          velocity: number;
-          instType: string;
-        }> = [];
+        const notesToPlay: ScheduledMidiNote[] = [];
         const scheduledVoiceMap = new Map<string, boolean>();
 
         targetTracks.forEach((t) => {
@@ -268,98 +242,23 @@ export function useStudioAudioPlayer({
           });
         });
 
-        notesToPlay.sort((a, b) => a.time - b.time);
-        sortedPlaybackNotesRef.current = notesToPlay;
-        nextScheduleIndexRef.current = 0;
-
-        // Rolling Lookahead Web Audio Loop (0.25s lookahead window)
-        const scheduleAheadSec = 0.25;
-
-        playbackTimerRef.current = window.setInterval(() => {
-          let elapsedRealAudioSec = 0;
-          if (audioCtx) {
-            elapsedRealAudioSec = audioCtx.currentTime - audioStartCtxTime;
-          } else {
-            if (!fallbackTs) fallbackTs = Date.now();
-            elapsedRealAudioSec = (Date.now() - fallbackTs) / 1000;
-          }
-
-          const currentTrackBpm = originalBpmRef.current || 120;
-          const userBpm = tempoBpmRef.current || currentTrackBpm;
-          const currentSpeed = Math.max(0.2, Math.min(4.0, userBpm / currentTrackBpm));
-          const currentElapsedTrackSec = initialCurrentTime + elapsedRealAudioSec * currentSpeed;
-
-          if (currentElapsedTrackSec <= midi.duration) {
-            setCurrentTime(currentElapsedTrackSec);
-          } else {
-            setCurrentTime(midi.duration);
-          }
-
-          // Schedule rolling lookahead window
-          if (audioCtx && soundfontRef.current) {
-            const windowEndTrackSec = currentElapsedTrackSec + scheduleAheadSec * currentSpeed;
-            const notes = sortedPlaybackNotesRef.current;
-            let idx = nextScheduleIndexRef.current;
-
-            while (idx < notes.length) {
-              const n = notes[idx];
-              if (n.time > windowEndTrackSec) break;
-              if (n.time >= currentElapsedTrackSec - 0.05 * currentSpeed) {
-                if (soloTrackIndex !== "all" || enabledInstrumentsRef.current[n.instType]) {
-                  const timeUntilNoteAudioSec = Math.max(0, (n.time - currentElapsedTrackSec) / currentSpeed);
-                  const noteCtxTime = audioCtx.currentTime + timeUntilNoteAudioSec;
-                  soundfontRef.current.start({
-                    note: n.midi,
-                    velocity: Math.floor(n.velocity * 127 * targetVolume),
-                    duration: Math.max(0.05, n.duration / currentSpeed),
-                    time: noteCtxTime,
-                  });
-                }
-              }
-              idx++;
-            }
-            nextScheduleIndexRef.current = idx;
-          }
-
-          // Track currently sounding active MIDI note for interactive visualizer
-          const notesList = sortedPlaybackNotesRef.current;
-          let activeNoteFound: number | null = null;
-          for (let i = 0; i < notesList.length; i++) {
-            const n = notesList[i];
-            if (n.time <= currentElapsedTrackSec && currentElapsedTrackSec <= n.time + n.duration) {
-              if (soloTrackIndex !== "all" || enabledInstrumentsRef.current[n.instType]) {
-                activeNoteFound = n.midi;
-              }
-            } else if (n.time > currentElapsedTrackSec + 0.2 * currentSpeed) {
-              break;
-            }
-          }
-          setActiveMidiNote(activeNoteFound);
-        }, 40);
-
-        const totalRemainingAudioMs = Math.max(0, ((midi.duration - actualStartTime) / speed) * 1000);
-        const endTimeoutId = window.setTimeout(() => {
-          if (loopMode === "one") {
-            playTrackRef.current(track, 0, soloTrackIndex);
-          } else {
-            const playlistIndex = playlist.findIndex((t) => t.id === track.id);
-            if (playlistIndex !== -1 && playlistIndex < playlist.length - 1) {
-              playTrackRef.current(playlist[playlistIndex + 1], 0);
-            } else {
-              setIsPlaying(false);
-              setActiveMidiNote(null);
-              setAudioStatus("Finished");
-            }
-          }
-        }, totalRemainingAudioMs);
-        activeTimeoutsRef.current.push(endTimeoutId);
+        await engine.playNotes({
+          notes: notesToPlay,
+          totalDuration: midi.duration,
+          startFromTime: actualStartTime,
+          speedMultiplier: speed,
+          volume,
+          isMuted,
+          enabledInstruments,
+          soloTrackIndex,
+        });
       } catch (err) {
         console.error("Playback error", err);
         setAudioStatus(`Error: ${(err as Error).message}`);
         setIsPlaying(false);
       }
     },
-    [initSoundfont, isMuted, loopMode, pausePlayback, playlist, volume]
+    [enabledInstruments, engine, isMuted, pausePlayback, volume]
   );
 
   const handleTempoBpmChange = useCallback(
@@ -382,8 +281,6 @@ export function useStudioAudioPlayer({
   const togglePlay = useCallback(() => {
     if (isPlaying) {
       pausePlayback();
-      setIsPlaying(false);
-      setAudioStatus("Paused");
     } else if (currentTrack) {
       playTrack(currentTrack, currentTime);
     }
@@ -467,3 +364,4 @@ export function useStudioAudioPlayer({
     formatTime,
   };
 }
+
