@@ -19,8 +19,9 @@ import {
 import Link from "next/link";
 import { MasterIndexEntry, TrackRecord, createShardWorker, fetchTracksFromShard } from "@/lib/sqlWorker";
 import type { WorkerHttpvfs } from "sql.js-httpvfs";
-import { Midi } from "@tonejs/midi";
 import { Soundfont } from "smplr";
+import { getMidiUrl, loadParsedMidi } from "@/lib/midiLoader";
+import { getStudioSettings, saveStudioSettings, getStudioPlaylist, saveStudioPlaylist } from "@/lib/studioStorage";
 import MultiModeVisualizerModal from "@/components/MultiModeVisualizerModal";
 import FooterPlayer from "@/components/FooterPlayer";
 import TrackListView from "@/components/TrackListView";
@@ -36,16 +37,16 @@ function MainStudioContent() {
   const [selectedShard, setSelectedShard] = useState<string>("");
   const [tracks, setTracks] = useState<TrackRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedAlpha, setSelectedAlpha] = useState<string>("ALL");
+
+  const [selectedAlpha, setSelectedAlpha] = useState<string>(() => getStudioSettings().alpha);
+  const [selectedGenre, setSelectedGenre] = useState<string>(() => getStudioSettings().genre);
+  const [selectedInstrument, setSelectedInstrument] = useState<string>(() => getStudioSettings().instrument);
+  const [selectedCountry, setSelectedCountry] = useState<string>(() => getStudioSettings().country);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(() => getStudioSettings().favsOnly);
   const [sortBy] = useState<string>("artist_asc");
-  const [viewMode, setViewMode] = useState<"table" | "grid" | "compact" | "vinyl">("table");
+  const [viewMode, setViewMode] = useState<"table" | "grid" | "compact" | "vinyl">(() => getStudioSettings().viewMode);
   const [loading, setLoading] = useState<boolean>(true);
-  const [enabledInstruments, setEnabledInstruments] = useState<Record<string, boolean>>({
-    piano: true,
-    bass: true,
-    strings: true,
-    drums: true,
-  });
+  const [enabledInstruments, setEnabledInstruments] = useState<Record<string, boolean>>(() => getStudioSettings().visualizerInstruments);
 
   // Dynamic Theme Algorithm Selector & Custom Token Palette
   const getAntdTheme = () => {
@@ -104,24 +105,7 @@ function MainStudioContent() {
   ], []);
 
   // Playlist & Favorites State (SSR Hydration Safe)
-  const [playlist, setPlaylist] = useState<TrackRecord[]>(DEFAULT_PRESETS);
-
-  // Sync localStorage on Client Mount (SSR Hydration Safe)
-  useEffect(() => {
-    try {
-      const savedPlaylist = localStorage.getItem("tn_midi_playlist");
-      if (savedPlaylist) {
-        const parsed = JSON.parse(savedPlaylist);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          requestAnimationFrame(() => {
-            setPlaylist(parsed);
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to load playlist from localStorage", e);
-    }
-  }, []);
+  const [playlist, setPlaylist] = useState<TrackRecord[]>(() => getStudioPlaylist(DEFAULT_PRESETS));
 
   const [isPlaylistOpen, setIsPlaylistOpen] = useState<boolean>(false);
 
@@ -138,9 +122,10 @@ function MainStudioContent() {
   // Advanced Player States (Seek, Volume, Loop)
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [totalDuration, setTotalDuration] = useState<number>(0);
-  const [volume, setVolume] = useState<number>(80);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [loopMode, setLoopMode] = useState<"off" | "one">("off");
+
+  const [volume, setVolume] = useState<number>(() => getStudioSettings().volume);
+  const [isMuted, setIsMuted] = useState<boolean>(() => getStudioSettings().isMuted);
+  const [loopMode, setLoopMode] = useState<"off" | "one">(() => getStudioSettings().loopMode);
 
   // Worker & Caching Refs
   const workerRef = useRef<WorkerHttpvfs | null>(null);
@@ -150,14 +135,69 @@ function MainStudioContent() {
   const activeTimeoutsRef = useRef<number[]>([]);
   const playbackTimerRef = useRef<number | null>(null);
 
+  // Filter & Setting Update Handlers with Grouped LocalStorage Persistence
+  const handleGenreChange = (val: string) => {
+    setSelectedGenre(val);
+    saveStudioSettings({ genre: val });
+  };
+
+  const handleInstrumentChange = (val: string) => {
+    setSelectedInstrument(val);
+    saveStudioSettings({ instrument: val });
+  };
+
+  const handleCountryChange = (val: string) => {
+    setSelectedCountry(val);
+    saveStudioSettings({ country: val });
+  };
+
+  const handleFavsOnlyToggle = () => {
+    setShowFavoritesOnly((prev) => {
+      const next = !prev;
+      saveStudioSettings({ favsOnly: next });
+      return next;
+    });
+  };
+
+  const handleAlphaChange = (alpha: string) => {
+    setSelectedAlpha(alpha);
+    saveStudioSettings({ alpha });
+  };
+
+  const handleViewModeChange = (mode: "table" | "grid" | "compact" | "vinyl") => {
+    setViewMode(mode);
+    saveStudioSettings({ viewMode: mode });
+  };
+
+  const handleVolumeChange = (vol: number) => {
+    setVolume(vol);
+    saveStudioSettings({ volume: vol });
+  };
+
+  const handleMutedChange = (muted: boolean) => {
+    setIsMuted(muted);
+    saveStudioSettings({ isMuted: muted });
+  };
+
+  const handleLoopModeChange = (mode: "off" | "one") => {
+    setLoopMode(mode);
+    saveStudioSettings({ loopMode: mode });
+  };
+
+  const updateEnabledInstruments = (
+    updater: React.SetStateAction<Record<string, boolean>>
+  ) => {
+    setEnabledInstruments((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveStudioSettings({ visualizerInstruments: next });
+      return next;
+    });
+  };
+
   // Lưu Playlist vào LocalStorage
   const savePlaylistToStorage = (newPlaylist: TrackRecord[]) => {
     setPlaylist(newPlaylist);
-    try {
-      localStorage.setItem("tn_midi_playlist", JSON.stringify(newPlaylist));
-    } catch (e) {
-      console.warn("Failed to save playlist to localStorage", e);
-    }
+    saveStudioPlaylist(newPlaylist);
   };
 
   const togglePlaylistTrack = (e: React.MouseEvent, track: TrackRecord) => {
@@ -272,21 +312,6 @@ function MainStudioContent() {
     }
   };
 
-  const getMidiUrl = (filePath: string) => {
-    // Sanitize any accidental absolute prefix or redundant clean_midi/ folder, strip quotes
-    const cleanPath = (filePath || "")
-      .replace(/^.*clean_midi\//, "")
-      .replace(/\\/g, "/")
-      .replace(/"/g, "")
-      .replace(/^\/+/, "");
-    const encodedSegments = cleanPath.split("/").map((segment) => encodeURIComponent(segment));
-    // Supabase public storage bucket "midi"
-    const midiBaseUrl =
-      process.env.NEXT_PUBLIC_MIDI_BASE_URL ||
-      "https://oczfmoquiugfdksddwuf.supabase.co/storage/v1/object/public/midi";
-    return `${midiBaseUrl.replace(/\/$/, "")}/${encodedSegments.join("/")}`;
-  };
-
   const downloadMidiFile = (e: React.MouseEvent, track: TrackRecord) => {
     e.stopPropagation();
     const url = getMidiUrl(track.file_path);
@@ -353,30 +378,7 @@ function MainStudioContent() {
       setAudioStatus("Loading SoundFont & MIDI...");
       await initSoundfont();
 
-      let midi: Midi;
-      try {
-        const midiUrl = getMidiUrl(track.file_path);
-        const res = await fetch(midiUrl);
-        if (!res.ok) {
-          throw new Error(`MIDI file not found (${res.status})`);
-        }
-        const arrayBuffer = await res.arrayBuffer();
-        midi = new Midi(arrayBuffer);
-      } catch (err) {
-        console.warn("MIDI file fetch error, using dynamic Synthesizer Sequence", err);
-        midi = new Midi();
-        const trackObj = midi.addTrack();
-        const notesScale = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
-        notesScale.forEach((noteNum, index) => {
-          trackObj.addNote({
-            midi: noteNum,
-            time: index * 0.35,
-            duration: 0.3,
-            velocity: 0.8,
-          });
-        });
-      }
-
+      const midi = await loadParsedMidi(track.file_path);
       setTotalDuration(midi.duration);
       setAudioStatus("Playing MIDI Audio...");
       setIsPlaying(true);
@@ -585,11 +587,6 @@ function MainStudioContent() {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  const [selectedGenre, setSelectedGenre] = useState<string>("ALL");
-  const [selectedInstrument, setSelectedInstrument] = useState<string>("ALL");
-  const [selectedCountry, setSelectedCountry] = useState<string>("ALL");
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
-
   // Filter & Sort tracks in memory
   const processedTracks = useMemo(() => {
     let result = [...tracks];
@@ -750,7 +747,7 @@ function MainStudioContent() {
                 <Select
                   value={selectedGenre}
                   style={{ width: 130 }}
-                  onChange={(val) => setSelectedGenre(val)}
+                  onChange={handleGenreChange}
                   options={[
                     { value: "ALL", label: t.allGenres },
                     { value: "Pop", label: t.pop },
@@ -766,7 +763,7 @@ function MainStudioContent() {
                 <Select
                   value={selectedInstrument}
                   style={{ width: 140 }}
-                  onChange={(val) => setSelectedInstrument(val)}
+                  onChange={handleInstrumentChange}
                   options={[
                     { value: "ALL", label: t.allInstruments },
                     { value: "Piano", label: t.instPiano },
@@ -783,7 +780,7 @@ function MainStudioContent() {
                 <Select
                   value={selectedCountry}
                   style={{ width: 140 }}
-                  onChange={(val) => setSelectedCountry(val)}
+                  onChange={handleCountryChange}
                   options={[
                     { value: "ALL", label: t.globalAll },
                     { value: "US_EU", label: t.usEu },
@@ -795,7 +792,7 @@ function MainStudioContent() {
                   type={showFavoritesOnly ? "primary" : "default"}
                   danger={showFavoritesOnly}
                   icon={showFavoritesOnly ? <HeartFilled /> : <HeartOutlined />}
-                  onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                  onClick={handleFavsOnlyToggle}
                 >
                   {showFavoritesOnly ? t.favoritesOnly : t.allTracks}
                 </Button>
@@ -808,7 +805,7 @@ function MainStudioContent() {
                     { value: "vinyl", icon: <CompassOutlined />, tooltip: t.vinylMode },
                   ]}
                   value={viewMode}
-                  onChange={(val) => setViewMode(val as "table" | "grid" | "compact" | "vinyl")}
+                  onChange={(val) => handleViewModeChange(val as "table" | "grid" | "compact" | "vinyl")}
                 />
               </div>
             </div>
@@ -823,11 +820,11 @@ function MainStudioContent() {
                   aria-selected={selectedAlpha === key}
                   aria-label={`Filter artists starting with ${key}`}
                   className={`${styles.alphaBtn} ${selectedAlpha === key ? styles.alphaBtnActive : ""}`}
-                  onClick={() => setSelectedAlpha(key)}
+                  onClick={() => handleAlphaChange(key)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setSelectedAlpha(key);
+                      handleAlphaChange(key);
                     }
                   }}
                 >
@@ -924,9 +921,9 @@ function MainStudioContent() {
           loopMode={loopMode}
           playlistLength={playlist.length}
           togglePlay={togglePlay}
-          setLoopMode={setLoopMode}
-          setIsMuted={setIsMuted}
-          setVolume={setVolume}
+          setLoopMode={handleLoopModeChange}
+          setIsMuted={handleMutedChange}
+          setVolume={handleVolumeChange}
           onSeek={handleSeek}
           onOpenPlaylist={() => setIsPlaylistOpen(true)}
           onOpenStage={() => {
@@ -954,7 +951,7 @@ function MainStudioContent() {
           totalDuration={totalDuration}
           activeMidiNote={activeMidiNote}
           enabledInstruments={enabledInstruments}
-          setEnabledInstruments={setEnabledInstruments}
+          setEnabledInstruments={updateEnabledInstruments}
           togglePlay={togglePlay}
           playTrack={playTrack}
           getMidiUrl={getMidiUrl}
