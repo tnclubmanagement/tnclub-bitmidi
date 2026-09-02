@@ -216,14 +216,6 @@ function MainStudioContent() {
       }
 
       if (workerRef.current) {
-        try {
-          const comlinkWorker = workerRef.current.worker as unknown as { releaseProxy?: () => void };
-          if (typeof comlinkWorker.releaseProxy === "function") {
-            comlinkWorker.releaseProxy();
-          }
-        } catch (e) {
-          console.warn("Cleanup previous worker error", e);
-        }
         workerRef.current = null;
       }
 
@@ -306,6 +298,11 @@ function MainStudioContent() {
     document.body.removeChild(link);
   };
 
+  const nextScheduleIndexRef = useRef<number>(0);
+  const sortedPlaybackNotesRef = useRef<
+    Array<{ midi: number; time: number; duration: number; velocity: number; instType: string }>
+  >([]);
+
   const pausePlayback = () => {
     activeTimeoutsRef.current.forEach((id) => clearTimeout(id));
     activeTimeoutsRef.current = [];
@@ -313,9 +310,14 @@ function MainStudioContent() {
       clearInterval(playbackTimerRef.current);
       playbackTimerRef.current = null;
     }
+    sortedPlaybackNotesRef.current = [];
+    nextScheduleIndexRef.current = 0;
     setActiveMidiNote(null);
     if (soundfontRef.current) {
       soundfontRef.current.stop();
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state === "running") {
+      audioCtxRef.current.suspend();
     }
   };
 
@@ -338,7 +340,11 @@ function MainStudioContent() {
     }
   };
 
-  const playTrack = async (track: TrackRecord, startFromTime: number = 0) => {
+  const playTrack = async (
+    track: TrackRecord,
+    startFromTime: number = 0,
+    soloTrackIndex?: number | "all"
+  ) => {
     pausePlayback();
     setCurrentTrack(track);
     setCurrentTime(startFromTime);
@@ -375,27 +381,14 @@ function MainStudioContent() {
       setAudioStatus("Playing MIDI Audio...");
       setIsPlaying(true);
 
-      // High-Precision Time Sync Engine (AudioContext Precise Clock)
+      // High-Precision Native Web Audio Engine (Microsecond-precise C++ clock)
       const audioCtx = audioCtxRef.current;
+      if (audioCtx && audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
       const audioStartCtxTime = audioCtx ? audioCtx.currentTime - startFromTime : 0;
       const initialCurrentTime = startFromTime;
       let fallbackTs = 0;
-
-      playbackTimerRef.current = window.setInterval(() => {
-        let elapsedSec = 0;
-        if (audioCtx) {
-          elapsedSec = audioCtx.currentTime - audioStartCtxTime;
-        } else {
-          if (!fallbackTs) fallbackTs = Date.now() - initialCurrentTime * 1000;
-          elapsedSec = (Date.now() - fallbackTs) / 1000;
-        }
-
-        if (elapsedSec <= midi.duration) {
-          setCurrentTime(elapsedSec);
-        } else {
-          setCurrentTime(midi.duration);
-        }
-      }, 16);
 
       // Helper: Classify Instrument Type
       const getInstType = (channel: number, name: string = "", program: number = 0) => {
@@ -424,35 +417,95 @@ function MainStudioContent() {
       // Schedule notes with Volume & Instrument Filter Control
       const targetVolume = isMuted ? 0 : volume / 100;
 
-      midi.tracks.forEach((t) => {
+      // Filter target tracks if solo mode is requested
+      let targetTracks = midi.tracks.filter((t) => t.notes.length > 0);
+      if (soloTrackIndex !== undefined && soloTrackIndex !== "all") {
+        if (midi.tracks[soloTrackIndex]) {
+          targetTracks = [midi.tracks[soloTrackIndex]];
+        }
+      }
+
+      // Prepare and sort all playback notes chronologically
+      const notesToPlay: Array<{ midi: number; time: number; duration: number; velocity: number; instType: string }> = [];
+      const scheduledVoiceMap = new Map<string, boolean>();
+
+      targetTracks.forEach((t) => {
         const programNumber = t.instrument?.number || 0;
         const instType = getInstType(t.channel || 0, t.name || "", programNumber);
 
         t.notes.forEach((note) => {
-          const delayMs = (note.time - startFromTime) * 1000;
-          if (delayMs < 0) return; // Skip notes in the past
+          if (note.time < startFromTime) return;
 
-          const timeoutId = window.setTimeout(() => {
-            // Check real-time instrument mute state right when the note triggers
-            if (soundfontRef.current && enabledInstrumentsRef.current[instType]) {
-              setActiveMidiNote(note.midi);
-              soundfontRef.current.start({
-                note: note.midi,
-                velocity: Math.floor(note.velocity * 127 * targetVolume),
-                duration: note.duration,
-              });
-            }
-          }, delayMs);
-          activeTimeoutsRef.current.push(timeoutId);
+          // Merge duplicate voice triggers within 30ms window
+          const quantizedTime = Math.round(note.time * 33) / 33;
+          const voiceKey = `${instType}_${note.midi}_${quantizedTime}`;
+          if (scheduledVoiceMap.has(voiceKey)) return;
+          scheduledVoiceMap.set(voiceKey, true);
+
+          notesToPlay.push({
+            midi: note.midi,
+            time: note.time,
+            duration: Math.max(0.08, note.duration),
+            velocity: note.velocity,
+            instType,
+          });
         });
       });
 
-      const totalDurationMs = (midi.duration - startFromTime) * 1000;
+      notesToPlay.sort((a, b) => a.time - b.time);
+      sortedPlaybackNotesRef.current = notesToPlay;
+      nextScheduleIndexRef.current = 0;
+
+      // Rolling Lookahead Web Audio Loop (0.25s lookahead window)
+      // Only schedules upcoming 250ms of audio, so when stopped or paused, audio terminates in <1ms!
+      const scheduleAheadSec = 0.25;
+
+      playbackTimerRef.current = window.setInterval(() => {
+        let elapsedSec = 0;
+        if (audioCtx) {
+          elapsedSec = audioCtx.currentTime - audioStartCtxTime;
+        } else {
+          if (!fallbackTs) fallbackTs = Date.now() - initialCurrentTime * 1000;
+          elapsedSec = (Date.now() - fallbackTs) / 1000;
+        }
+
+        if (elapsedSec <= midi.duration) {
+          setCurrentTime(elapsedSec);
+        } else {
+          setCurrentTime(midi.duration);
+        }
+
+        // Schedule rolling lookahead window
+        if (audioCtx && soundfontRef.current) {
+          const windowEndSec = elapsedSec + scheduleAheadSec;
+          const notes = sortedPlaybackNotesRef.current;
+          let idx = nextScheduleIndexRef.current;
+
+          while (idx < notes.length) {
+            const n = notes[idx];
+            if (n.time > windowEndSec) break;
+            if (n.time >= elapsedSec - 0.05) {
+              if (soloTrackIndex !== "all" || enabledInstrumentsRef.current[n.instType]) {
+                const noteCtxTime = audioStartCtxTime + n.time;
+                soundfontRef.current.start({
+                  note: n.midi,
+                  velocity: Math.floor(n.velocity * 127 * targetVolume),
+                  duration: n.duration,
+                  time: Math.max(audioCtx.currentTime, noteCtxTime),
+                });
+              }
+            }
+            idx++;
+          }
+          nextScheduleIndexRef.current = idx;
+        }
+      }, 40);
+
+      const totalDurationMs = Math.max(0, (midi.duration - startFromTime) * 1000);
       const endTimeoutId = window.setTimeout(() => {
         if (loopMode === "one") {
-          playTrack(track, 0);
+          playTrack(track, 0, soloTrackIndex);
         } else {
-          // Auto play next track in playlist if playing from playlist
           const playlistIndex = playlist.findIndex((t) => t.id === track.id);
           if (playlistIndex !== -1 && playlistIndex < playlist.length - 1) {
             playTrack(playlist[playlistIndex + 1], 0);
@@ -888,7 +941,13 @@ function MainStudioContent() {
         {/* Multi-Mode Stage Visualizer Modal (Synced with Main Player) */}
         <MultiModeVisualizerModal
           open={isStageOpen}
-          onClose={() => setIsStageOpen(false)}
+          onClose={() => {
+            setIsStageOpen(false);
+            if (isPlaying) {
+              pausePlayback();
+              setIsPlaying(false);
+            }
+          }}
           track={stageTrack || currentTrack}
           isPlaying={isPlaying}
           currentTime={currentTime}

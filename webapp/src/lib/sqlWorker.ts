@@ -68,29 +68,38 @@ export async function fetchTracksFromShard(
   query: string = "",
   instrumentFilter: string = "ALL"
 ): Promise<TrackRecord[]> {
-  let sql = "SELECT id, title, artist, file_path, duration, instruments, primary_instrument, tracks_count, has_drums FROM tracks";
-  const conditions: string[] = [];
-
-  if (query.trim().length > 0) {
-    const q = query.replace(/'/g, "''");
-    conditions.push(`(title LIKE '%${q}%' OR artist LIKE '%${q}%')`);
+  if (!worker || !worker.db) {
+    return [];
   }
 
-  if (instrumentFilter && instrumentFilter !== "ALL") {
-    if (instrumentFilter === "drums") {
-      conditions.push("has_drums = 1");
-    } else {
-      const inst = instrumentFilter.toLowerCase().replace(/'/g, "''");
-      conditions.push(`(LOWER(primary_instrument) LIKE '%${inst}%' OR LOWER(instruments) LIKE '%"${inst}"%')`);
+  try {
+    let sql = "SELECT id, title, artist, file_path, duration, instruments, primary_instrument, tracks_count, has_drums FROM tracks";
+    const conditions: string[] = [];
+
+    if (query.trim().length > 0) {
+      const q = query.replace(/'/g, "''");
+      conditions.push(`(title LIKE '%${q}%' OR artist LIKE '%${q}%')`);
     }
+
+    if (instrumentFilter && instrumentFilter !== "ALL") {
+      if (instrumentFilter === "drums") {
+        conditions.push("has_drums = 1");
+      } else {
+        const inst = instrumentFilter.toLowerCase().replace(/'/g, "''");
+        conditions.push(`(LOWER(primary_instrument) LIKE '%${inst}%' OR LOWER(instruments) LIKE '%"${inst}"%')`);
+      }
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    sql += " ORDER BY artist ASC, title ASC LIMIT 20000;";
+
+    const result = await worker.db.query(sql);
+    return (result || []) as unknown as TrackRecord[];
+  } catch (err) {
+    console.warn("fetchTracksFromShard query error:", err);
+    return [];
   }
-
-  if (conditions.length > 0) {
-    sql += ` WHERE ${conditions.join(" AND ")}`;
-  }
-
-  sql += " ORDER BY artist ASC, title ASC LIMIT 20000;";
-
-  const result = await worker.db.query(sql);
-  return result as unknown as TrackRecord[];
 }
