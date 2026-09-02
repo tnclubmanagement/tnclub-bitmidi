@@ -57,18 +57,40 @@ export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
   ];
 
   return (
-    <div className={styles.visualizerContainer}>
-      <div className={styles.visualizerHeader}>
+    <div
+      className={styles.visualizerContainer}
+      id="piano-roll-visualizer"
+      data-testid="piano-roll-visualizer"
+      role="region"
+      aria-label="Interactive Piano Roll Keyboard"
+    >
+      <div className={styles.visualizerHeader} aria-label="Piano Visualizer Status Header">
         <span>🎹 Interactive SoundFont Piano Visualizer</span>
-        <span className={styles.visualizerActiveTag}>
+        <span
+          id="piano-active-note-tag"
+          data-testid="piano-active-note-tag"
+          aria-label={activeNote ? `Currently active MIDI note: ${activeNote}` : "Waiting for MIDI audio playback"}
+          className={styles.visualizerActiveTag}
+        >
           {activeNote ? `Playing MIDI Note: ${activeNote}` : "Waiting for audio..."}
         </span>
       </div>
 
-      <div className={styles.pianoKeyboard}>
+      <div
+        className={styles.pianoKeyboard}
+        id="piano-keyboard-keys"
+        data-testid="piano-keyboard-keys"
+        role="group"
+        aria-label="Piano 52-key Keyboard"
+      >
         {WHITE_KEYS.map((note) => (
           <div
             key={note}
+            id={`piano-white-key-${note}`}
+            data-testid={`piano-key-${note}`}
+            data-note={note}
+            data-active={activeNote === note}
+            aria-label={`White Piano Key MIDI Note ${note}${activeNote === note ? " (Playing)" : ""}`}
             className={`${styles.whiteKey} ${activeNote === note ? styles.activeKey : ""}`}
           />
         ))}
@@ -76,6 +98,11 @@ export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
         {BLACK_KEYS.map(({ note, afterWhiteIndex }) => (
           <div
             key={note}
+            id={`piano-black-key-${note}`}
+            data-testid={`piano-key-${note}`}
+            data-note={note}
+            data-active={activeNote === note}
+            aria-label={`Black Piano Key MIDI Note ${note}${activeNote === note ? " (Playing)" : ""}`}
             className={`${styles.blackKey} ${activeNote === note ? styles.activeKey : ""}`}
             style={{ left: `${((afterWhiteIndex + 1) * (100 / 52)) - (100 / 52 * 0.35)}%` }}
           />

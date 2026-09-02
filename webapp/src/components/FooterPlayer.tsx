@@ -113,6 +113,9 @@ export default function FooterPlayer({
       <div className={styles.audioControlsRight}>
         <Tooltip title={t.openStageVisualizer}>
           <Button
+            id="footer-open-stage-btn"
+            data-testid="footer-open-stage-btn"
+            aria-label={t.openStageVisualizer}
             type="default"
             icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
             disabled={!currentTrack}

@@ -138,6 +138,9 @@ function TableRowItem({ index, track, isSelected, isPlaying, inPlaylist, searchQ
       <div className={styles.colAction}>
         <Tooltip title={t.openStageVisualizer}>
           <Button
+            id={`track-stage-btn-table-${track.id}`}
+            data-testid={`track-stage-btn-${track.id}`}
+            aria-label={`Open Stage Visualizer for ${track.title}`}
             type="text"
             icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
             onClick={(e) => {
@@ -191,6 +194,9 @@ function CompactRowItem({ index, track, isSelected, isPlaying, inPlaylist, playT
       <div style={{ width: 120, display: "flex", justifyContent: "flex-end", gap: 4 }}>
         <Tooltip title="Open Stage Visualizer">
           <Button
+            id={`track-stage-btn-compact-${track.id}`}
+            data-testid={`track-stage-btn-${track.id}`}
+            aria-label={`Open Stage Visualizer for ${track.title}`}
             type="text"
             size="small"
             icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
@@ -278,6 +284,9 @@ function GridCardItem({ index, track, isSelected, isPlaying, inPlaylist, playTra
         <div>
           <Tooltip title="Open Stage Visualizer">
             <Button
+              id={`track-stage-btn-grid-${track.id}`}
+              data-testid={`track-stage-btn-${track.id}`}
+              aria-label={`Open Stage Visualizer for ${track.title}`}
               type="text"
               icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
               onClick={(e) => {
@@ -354,6 +363,9 @@ function VinylCardItem({ track, isSelected, isPlaying, inPlaylist, playTrack, to
         <div>
           <Tooltip title="Open Stage Visualizer">
             <Button
+              id={`track-stage-btn-vinyl-${track.id}`}
+              data-testid={`track-stage-btn-${track.id}`}
+              aria-label={`Open Stage Visualizer for ${track.title}`}
               type="text"
               icon={<EyeOutlined style={{ color: "#38bdf8" }} />}
               onClick={(e) => {

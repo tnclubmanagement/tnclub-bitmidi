@@ -497,14 +497,16 @@ export default function MultiModeVisualizerModal({
   return (
     <Modal
       title={
-        <div id="stage-modal-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingRight: 32 }}>
+        <div id="stage-modal-header" data-testid="stage-modal-header" aria-label="Stage Visualizer Header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingRight: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <CustomerServiceOutlined style={{ color: "#38bdf8", fontSize: 22 }} />
-            <span id="stage-modal-title" style={{ fontWeight: 700, fontSize: "1.1rem" }}>{track?.title || "No Track Selected"} — Stage Visualizer</span>
+            <CustomerServiceOutlined aria-hidden="true" style={{ color: "#38bdf8", fontSize: 22 }} />
+            <span id="stage-modal-title" data-testid="stage-modal-title" aria-label={`Stage Visualizer: ${track?.title || "No Track Selected"}`} style={{ fontWeight: 700, fontSize: "1.1rem" }}>{track?.title || "No Track Selected"} — Stage Visualizer</span>
           </div>
 
           <Segmented
             id="stage-vis-mode-segmented"
+            data-testid="stage-vis-mode-segmented"
+            aria-label="Visualizer Mode Selector"
             options={[
               { value: "falling-notes", label: "🌊 Falling Notes (Synthesia)" },
               { value: "sheet", label: "🎼 Sheet Music A4" },
@@ -517,25 +519,31 @@ export default function MultiModeVisualizerModal({
       }
       open={open}
       onCancel={onClose}
+      aria-label={`Stage Visualizer Dialog - ${track?.title || "No Track Selected"}`}
+      data-testid="stage-visualizer-modal"
       width={940}
       footer={
-        <div id="stage-modal-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
+        <div id="stage-modal-footer" data-testid="stage-modal-footer" aria-label="Stage Visualizer Playback Controls" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Button
               id="stage-play-pause-btn"
+              data-testid="stage-play-pause-btn"
+              aria-label={isPlaying ? "Pause MIDI Playback" : "Play MIDI Playback"}
               type="primary"
               shape="circle"
               size="large"
               icon={isPlaying ? <PauseCircleFilled /> : <PlayCircleFilled />}
               onClick={handleTogglePlay}
             />
-            <span id="stage-time-display" style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
+            <span id="stage-time-display" data-testid="stage-time-display" aria-label={`Playback Time: ${formatTime(currentTime)} of ${formatTime(totalDuration)}`} style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
               {formatTime(currentTime)} / {formatTime(totalDuration)}
             </span>
           </div>
 
           <Slider
             id="stage-progress-slider"
+            data-testid="stage-progress-slider"
+            aria-label="Stage Playback Progress Slider"
             style={{ flex: 1, margin: "0 24px" }}
             min={0}
             max={totalDuration || 100}
@@ -544,7 +552,7 @@ export default function MultiModeVisualizerModal({
             tooltip={{ formatter: (v) => formatTime(v || 0) }}
           />
 
-          <Button id="stage-export-btn" icon={<DownloadOutlined />} onClick={() => window.print()}>
+          <Button id="stage-export-btn" data-testid="stage-export-btn" aria-label="Print or Export Sheet Music" icon={<DownloadOutlined />} onClick={() => window.print()}>
             Print / Export Sheet
           </Button>
         </div>
@@ -553,6 +561,9 @@ export default function MultiModeVisualizerModal({
       {/* Row 2: Sub-header Instrument Filter Controls Bar */}
       <div
         id="stage-instrument-filter-bar"
+        data-testid="stage-instrument-filter-bar"
+        aria-label="Instrument Filter Toolbar"
+        role="toolbar"
         style={{
           display: "flex",
           alignItems: "center",
@@ -579,6 +590,21 @@ export default function MultiModeVisualizerModal({
             return (
               <Tag
                 key={inst.key}
+                id={`stage-filter-tag-${inst.key}`}
+                data-testid={`stage-filter-${inst.key}`}
+                role="button"
+                aria-pressed={isActive}
+                aria-label={`Toggle ${inst.label} track filter, currently ${isActive ? "active" : "muted"}`}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setEnabledInstruments((prev) => ({
+                      ...prev,
+                      [inst.key]: !prev[inst.key],
+                    }));
+                  }
+                }}
                 style={{
                   cursor: "pointer",
                   padding: "4px 14px",
@@ -605,14 +631,14 @@ export default function MultiModeVisualizerModal({
           })}
         </div>
       </div>
-      <div id="stage-vis-container" style={{ borderRadius: 12, overflow: "hidden", background: "#090d16", marginTop: 16 }}>
+      <div id="stage-vis-container" data-testid="stage-vis-container" aria-label="Visualizer Stage Container" style={{ borderRadius: 12, overflow: "hidden", background: "#090d16", marginTop: 16 }}>
         {visMode === "piano-roll" ? (
-          <div id="stage-piano-roll-container" style={{ padding: 24 }}>
+          <div id="stage-piano-roll-container" data-testid="stage-piano-roll-container" aria-label="Interactive Piano Keyboard Roll Container" style={{ padding: 24 }}>
             <PianoRollVisualizer activeNote={activeMidiNote} />
           </div>
         ) : (
-          <div id="stage-canvas-container" style={{ width: "100%", height: visMode === "sheet" ? 540 : 380, position: "relative" }}>
-            <canvas id="stage-visualizer-canvas" ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+          <div id="stage-canvas-container" data-testid="stage-canvas-container" aria-label={`${visMode === "sheet" ? "Sheet Music" : "Falling Notes Synthesia"} Canvas Container`} style={{ width: "100%", height: visMode === "sheet" ? 540 : 380, position: "relative" }}>
+            <canvas id="stage-visualizer-canvas" data-testid="stage-visualizer-canvas" aria-label={`Real-time Stage Visualizer Render Canvas (${visMode})`} role="img" ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
           </div>
         )}
       </div>
