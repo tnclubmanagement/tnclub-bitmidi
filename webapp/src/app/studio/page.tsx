@@ -1,111 +1,35 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useMemo } from "react";
-import { Input, Spin, Badge, Button, Select, ConfigProvider, theme, Segmented, Drawer, Popover, message } from "antd";
-import {
-  SearchOutlined,
-  CustomerServiceOutlined,
-  AppstoreOutlined,
-  BarsOutlined,
-  HeartOutlined,
-  HeartFilled,
-  UnorderedListOutlined,
-  DeleteOutlined,
-  CompassOutlined,
-  MenuOutlined,
-  SettingOutlined,
-  HomeOutlined,
-} from "@ant-design/icons";
-import Link from "next/link";
-import { MasterIndexEntry, TrackRecord, createShardWorker, fetchTracksFromShard } from "@/lib/sqlWorker";
-import type { WorkerHttpvfs } from "sql.js-httpvfs";
-import { Soundfont } from "smplr";
-import { getMidiUrl, loadParsedMidi } from "@/lib/midiLoader";
-import { getStudioSettings, saveStudioSettings, getStudioPlaylist, saveStudioPlaylist } from "@/lib/studioStorage";
-import MultiModeVisualizerModal from "@/components/MultiModeVisualizerModal";
-import FooterPlayer from "@/components/FooterPlayer";
-import TrackListView from "@/components/TrackListView";
-import { AppSettingsProvider, useAppSettings, ThemeMode, Language } from "@/context/AppSettingsContext";
+import React, { useState, useEffect, useCallback } from "react";
+import { Spin, ConfigProvider, message } from "antd";
+import { TrackRecord } from "@/lib/sqlWorker";
+import { getMidiUrl } from "@/lib/midiLoader";
+import { getStudioPlaylist, saveStudioPlaylist } from "./_lib/studioStorage";
+import { DEFAULT_PRESETS } from "./_lib/studioConstants";
+import { getAntdTheme } from "./_lib/studioTheme";
+import MultiModeVisualizerModal from "./_components/MultiModeVisualizerModal";
+import FooterPlayer from "./_components/FooterPlayer";
+import TrackListView from "./_components/TrackListView";
+import StudioHeader from "./_components/StudioHeader";
+import StudioToolbar from "./_components/StudioToolbar";
+import AlphaFilterBar from "./_components/AlphaFilterBar";
+import PlaylistDrawer from "./_components/PlaylistDrawer";
+import { AppSettingsProvider, useAppSettings } from "@/context/AppSettingsContext";
+import { useStudioTracks } from "./_hooks/useStudioTracks";
+import { useTrackFilters } from "./_hooks/useTrackFilters";
+import { useStudioAudioPlayer } from "./_hooks/useStudioAudioPlayer";
 import styles from "../app.module.css";
 
-const ALPHA_KEYS = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
-
 function MainStudioContent() {
-  const { themeMode, setThemeMode, language, setLanguage, t } = useAppSettings();
+  const { themeMode } = useAppSettings();
 
-  const [masterIndex, setMasterIndex] = useState<MasterIndexEntry[]>([]);
-  const [selectedShard, setSelectedShard] = useState<string>("");
-  const [tracks, setTracks] = useState<TrackRecord[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  // Playlist state (SSR Hydration Safe)
+  const [playlist, setPlaylist] = useState<TrackRecord[]>(DEFAULT_PRESETS);
 
-  const [selectedAlpha, setSelectedAlpha] = useState<string>(() => getStudioSettings().alpha);
-  const [selectedGenre, setSelectedGenre] = useState<string>(() => getStudioSettings().genre);
-  const [selectedInstrument, setSelectedInstrument] = useState<string>(() => getStudioSettings().instrument);
-  const [selectedCountry, setSelectedCountry] = useState<string>(() => getStudioSettings().country);
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(() => getStudioSettings().favsOnly);
-  const [sortBy] = useState<string>("artist_asc");
-  const [viewMode, setViewMode] = useState<"table" | "grid" | "compact" | "vinyl">(() => getStudioSettings().viewMode);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [enabledInstruments, setEnabledInstruments] = useState<Record<string, boolean>>(() => getStudioSettings().visualizerInstruments);
-
-  // Dynamic Theme Algorithm Selector & Custom Token Palette
-  const getAntdTheme = () => {
-    if (themeMode === "light") {
-      return {
-        algorithm: theme.defaultAlgorithm,
-        token: {
-          colorPrimary: "#0284c7",
-          colorBgContainer: "#ffffff",
-          colorBgLayout: "#f8fafc",
-          colorText: "#0f172a",
-        },
-      };
-    }
-    if (themeMode === "neon") {
-      return {
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: "#06b6d4",
-          colorBgContainer: "#050b14",
-          colorBgLayout: "#020617",
-          colorText: "#38bdf8",
-        },
-      };
-    }
-    if (themeMode === "retro") {
-      return {
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: "#d97706",
-          colorBgContainer: "#1c1917",
-          colorBgLayout: "#0c0a09",
-          colorText: "#fef3c7",
-        },
-      };
-    }
-    // Default Dark Mode
-    return {
-      algorithm: theme.darkAlgorithm,
-      token: {
-        colorPrimary: "#0284c7",
-        colorBgContainer: "#0f172a",
-        colorBgLayout: "#090d16",
-        colorText: "#f8fafc",
-      },
-    };
-  };
-
-  // Preset Curated Playlists (Spotify / Apple Music Style)
-  const DEFAULT_PRESETS: TrackRecord[] = useMemo(() => [
-    { id: "preset_1", title: "Dreadlock Holiday", artist: "10cc", file_path: "clean_midi/10cc/Dreadlock Holiday.mid", duration: 309.95 },
-    { id: "preset_2", title: "Bohemian Rhapsody", artist: "Queen", file_path: "clean_midi/Queen/Bohemian Rhapsody.mid", duration: 354.0 },
-    { id: "preset_3", title: "Caught Up In You", artist: ".38 Special", file_path: "clean_midi/.38 Special/Caught Up In You.mid", duration: 276.0 },
-    { id: "preset_4", title: "Dancing Queen", artist: "ABBA", file_path: "clean_midi/ABBA/Dancing Queen.mid", duration: 230.0 },
-    { id: "preset_5", title: "A Campfire Song", artist: "10,000 Maniacs", file_path: "clean_midi/10,000 Maniacs/A Campfire Song.mid", duration: 205.0 },
-  ], []);
-
-  // Playlist & Favorites State (SSR Hydration Safe)
-  const [playlist, setPlaylist] = useState<TrackRecord[]>(() => getStudioPlaylist(DEFAULT_PRESETS));
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlaylist(getStudioPlaylist(DEFAULT_PRESETS));
+  }, []);
 
   const [isPlaylistOpen, setIsPlaylistOpen] = useState<boolean>(false);
 
@@ -113,206 +37,83 @@ function MainStudioContent() {
   const [stageTrack, setStageTrack] = useState<TrackRecord | null>(null);
   const [isStageOpen, setIsStageOpen] = useState<boolean>(false);
 
-  // Player States
-  const [currentTrack, setCurrentTrack] = useState<TrackRecord | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [, setAudioStatus] = useState<string>("Ready");
-  const [activeMidiNote, setActiveMidiNote] = useState<number | null>(null);
+  // Custom Hooks for Data, Filter & Audio Playback
+  const { tracks, loading, searchQuery, handleSearch } = useStudioTracks();
 
-  // Advanced Player States (Seek, Volume, Loop)
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [totalDuration, setTotalDuration] = useState<number>(0);
+  const {
+    selectedAlpha,
+    selectedGenre,
+    selectedInstrument,
+    selectedCountry,
+    showFavoritesOnly,
+    viewMode,
+    enabledInstruments,
+    processedTracks,
+    handleGenreChange,
+    handleInstrumentChange,
+    handleCountryChange,
+    handleFavsOnlyToggle,
+    handleAlphaChange,
+    handleViewModeChange,
+    updateEnabledInstruments,
+  } = useTrackFilters({ tracks, playlist });
 
-  const [volume, setVolume] = useState<number>(() => getStudioSettings().volume);
-  const [isMuted, setIsMuted] = useState<boolean>(() => getStudioSettings().isMuted);
-  const [loopMode, setLoopMode] = useState<"off" | "one">(() => getStudioSettings().loopMode);
+  const {
+    currentTrack,
+    isPlaying,
+    setIsPlaying,
+    activeMidiNote,
+    currentTime,
+    totalDuration,
+    volume,
+    isMuted,
+    loopMode,
+    handleVolumeChange,
+    handleMutedChange,
+    handleLoopModeChange,
+    pausePlayback,
+    playTrack,
+    togglePlay,
+    handleSeek,
+    formatTime,
+  } = useStudioAudioPlayer({
+    playlist,
+    tracks,
+    enabledInstruments,
+  });
 
-  // Worker & Caching Refs
-  const workerRef = useRef<WorkerHttpvfs | null>(null);
-  const shardCacheRef = useRef<Map<string, TrackRecord[]>>(new Map());
-  const soundfontRef = useRef<Soundfont | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const activeTimeoutsRef = useRef<number[]>([]);
-  const playbackTimerRef = useRef<number | null>(null);
-
-  // Filter & Setting Update Handlers with Grouped LocalStorage Persistence
-  const handleGenreChange = (val: string) => {
-    setSelectedGenre(val);
-    saveStudioSettings({ genre: val });
-  };
-
-  const handleInstrumentChange = (val: string) => {
-    setSelectedInstrument(val);
-    saveStudioSettings({ instrument: val });
-  };
-
-  const handleCountryChange = (val: string) => {
-    setSelectedCountry(val);
-    saveStudioSettings({ country: val });
-  };
-
-  const handleFavsOnlyToggle = () => {
-    setShowFavoritesOnly((prev) => {
-      const next = !prev;
-      saveStudioSettings({ favsOnly: next });
-      return next;
-    });
-  };
-
-  const handleAlphaChange = (alpha: string) => {
-    setSelectedAlpha(alpha);
-    saveStudioSettings({ alpha });
-  };
-
-  const handleViewModeChange = (mode: "table" | "grid" | "compact" | "vinyl") => {
-    setViewMode(mode);
-    saveStudioSettings({ viewMode: mode });
-  };
-
-  const handleVolumeChange = (vol: number) => {
-    setVolume(vol);
-    saveStudioSettings({ volume: vol });
-  };
-
-  const handleMutedChange = (muted: boolean) => {
-    setIsMuted(muted);
-    saveStudioSettings({ isMuted: muted });
-  };
-
-  const handleLoopModeChange = (mode: "off" | "one") => {
-    setLoopMode(mode);
-    saveStudioSettings({ loopMode: mode });
-  };
-
-  const updateEnabledInstruments = (
-    updater: React.SetStateAction<Record<string, boolean>>
-  ) => {
-    setEnabledInstruments((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      saveStudioSettings({ visualizerInstruments: next });
-      return next;
-    });
-  };
-
-  // Lưu Playlist vào LocalStorage
-  const savePlaylistToStorage = (newPlaylist: TrackRecord[]) => {
+  // Playlist management
+  const savePlaylistToStorage = useCallback((newPlaylist: TrackRecord[]) => {
     setPlaylist(newPlaylist);
     saveStudioPlaylist(newPlaylist);
-  };
-
-  const togglePlaylistTrack = (e: React.MouseEvent, track: TrackRecord) => {
-    e.stopPropagation();
-    const exists = playlist.some((t) => t.id === track.id);
-    let updated: TrackRecord[];
-    if (exists) {
-      updated = playlist.filter((t) => t.id !== track.id);
-      message.info(`Removed "${track.title}" from Playlist`);
-    } else {
-      updated = [...playlist, track];
-      message.success(`Added "${track.title}" to Playlist`);
-    }
-    savePlaylistToStorage(updated);
-  };
-
-  const removeFromPlaylist = (trackId: string) => {
-    const updated = playlist.filter((t) => t.id !== trackId);
-    savePlaylistToStorage(updated);
-  };
-
-  // Fetch Master Index on initial load
-  useEffect(() => {
-    async function loadIndex() {
-      try {
-        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-        const res = await fetch(`${basePath}/db/master_index.json`);
-        const data: MasterIndexEntry[] = await res.json();
-        setMasterIndex(data);
-        if (data.length > 0) {
-          setSelectedShard(data[0].shard as string);
-        }
-      } catch (err) {
-        console.error("Failed to load master_index.json", err);
-      }
-    }
-    loadIndex();
   }, []);
 
-
-
-  // Mount/Switch Web Worker with Shard Caching
-  useEffect(() => {
-    if (!selectedShard) return;
-
-    let isMounted = true;
-
-    async function initWorker() {
-      setLoading(true);
-
-      // Check Cache first
-      if (shardCacheRef.current.has(selectedShard) && searchQuery.trim() === "") {
-        setTracks(shardCacheRef.current.get(selectedShard)!);
-        setLoading(false);
-        return;
+  const togglePlaylistTrack = useCallback(
+    (e: React.MouseEvent, track: TrackRecord) => {
+      e.stopPropagation();
+      const exists = playlist.some((t) => t.id === track.id);
+      let updated: TrackRecord[];
+      if (exists) {
+        updated = playlist.filter((t) => t.id !== track.id);
+        message.info(`Removed "${track.title}" from Playlist`);
+      } else {
+        updated = [...playlist, track];
+        message.success(`Added "${track.title}" to Playlist`);
       }
+      savePlaylistToStorage(updated);
+    },
+    [playlist, savePlaylistToStorage]
+  );
 
-      if (workerRef.current) {
-        workerRef.current = null;
-      }
+  const removeFromPlaylist = useCallback(
+    (trackId: string) => {
+      const updated = playlist.filter((t) => t.id !== trackId);
+      savePlaylistToStorage(updated);
+    },
+    [playlist, savePlaylistToStorage]
+  );
 
-      try {
-        const shardEntry = masterIndex.find((m) => m.shard === selectedShard);
-        const fileLength = shardEntry?.size || 4681728;
-        const worker = await createShardWorker(selectedShard, fileLength);
-        if (!isMounted) return;
-
-        workerRef.current = worker;
-        const result = await fetchTracksFromShard(worker, searchQuery);
-        if (isMounted) {
-          if (searchQuery.trim() === "") {
-            shardCacheRef.current.set(selectedShard, result);
-          }
-          setTracks(result);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Error initializing shard worker", err);
-        if (isMounted) {
-          setTracks([]);
-          setLoading(false);
-        }
-      }
-    }
-
-    initWorker();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedShard, searchQuery, DEFAULT_PRESETS, masterIndex]);
-
-  const handleSearch = async (value: string) => {
-    setSearchQuery(value);
-    if (workerRef.current) {
-      setLoading(true);
-      try {
-        const result = await fetchTracksFromShard(workerRef.current, value);
-        setTracks(result);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      setLoading(true);
-      try {
-        setTracks([]);
-      } catch (e) {
-        console.error("Search fallback error", e);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const downloadMidiFile = (e: React.MouseEvent, track: TrackRecord) => {
+  const downloadMidiFile = useCallback((e: React.MouseEvent, track: TrackRecord) => {
     e.stopPropagation();
     const url = getMidiUrl(track.file_path);
     const link = document.createElement("a");
@@ -321,521 +122,46 @@ function MainStudioContent() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const nextScheduleIndexRef = useRef<number>(0);
-  const sortedPlaybackNotesRef = useRef<
-    Array<{ midi: number; time: number; duration: number; velocity: number; instType: string }>
-  >([]);
-
-  const pausePlayback = () => {
-    activeTimeoutsRef.current.forEach((id) => clearTimeout(id));
-    activeTimeoutsRef.current = [];
-    if (playbackTimerRef.current) {
-      clearInterval(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
-    sortedPlaybackNotesRef.current = [];
-    nextScheduleIndexRef.current = 0;
-    setActiveMidiNote(null);
-    if (soundfontRef.current) {
-      soundfontRef.current.stop();
-    }
-    if (audioCtxRef.current && audioCtxRef.current.state === "running") {
-      audioCtxRef.current.suspend();
-    }
-  };
-
-  const initSoundfont = async () => {
-    if (!audioCtxRef.current) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audioCtxRef.current = new AudioCtx();
-    }
-    if (audioCtxRef.current.state === "suspended") {
-      await audioCtxRef.current.resume();
-    }
-
-    if (!soundfontRef.current && audioCtxRef.current) {
-      setAudioStatus("Loading Piano SoundFont...");
-      soundfontRef.current = new Soundfont(audioCtxRef.current, {
-        instrument: "acoustic_grand_piano",
-      });
-      await soundfontRef.current.load;
-      setAudioStatus("SoundFont Ready");
-    }
-  };
-
-  const playTrack = async (
-    track: TrackRecord,
-    startFromTime: number = 0,
-    soloTrackIndex?: number | "all"
-  ) => {
-    pausePlayback();
-    setCurrentTrack(track);
-    setCurrentTime(startFromTime);
-
-    try {
-      setAudioStatus("Loading SoundFont & MIDI...");
-      await initSoundfont();
-
-      const midi = await loadParsedMidi(track.file_path);
-      setTotalDuration(midi.duration);
-      setAudioStatus("Playing MIDI Audio...");
-      setIsPlaying(true);
-
-      // High-Precision Native Web Audio Engine (Microsecond-precise C++ clock)
-      const audioCtx = audioCtxRef.current;
-      if (audioCtx && audioCtx.state === "suspended") {
-        await audioCtx.resume();
-      }
-      const audioStartCtxTime = audioCtx ? audioCtx.currentTime - startFromTime : 0;
-      const initialCurrentTime = startFromTime;
-      let fallbackTs = 0;
-
-      // Helper: Classify Instrument Type
-      const getInstType = (channel: number, name: string = "", program: number = 0) => {
-        if (channel === 9 || channel === 10) return "drums";
-        const nameLower = name.toLowerCase();
-        if (nameLower.includes("bass") || (program >= 32 && program <= 39)) return "bass";
-        if (
-          nameLower.includes("string") ||
-          nameLower.includes("brass") ||
-          nameLower.includes("pad") ||
-          nameLower.includes("guitar") ||
-          nameLower.includes("synth") ||
-          nameLower.includes("organ") ||
-          nameLower.includes("flute") ||
-          nameLower.includes("sax") ||
-          (program >= 24 && program <= 31) ||
-          (program >= 40 && program <= 55) ||
-          (program >= 56 && program <= 79) ||
-          (program >= 80 && program <= 103)
-        ) {
-          return "strings";
-        }
-        return "piano";
-      };
-
-      // Schedule notes with Volume & Instrument Filter Control
-      const targetVolume = isMuted ? 0 : volume / 100;
-
-      // Filter target tracks if solo mode is requested
-      let targetTracks = midi.tracks.filter((t) => t.notes.length > 0);
-      if (soloTrackIndex !== undefined && soloTrackIndex !== "all") {
-        if (midi.tracks[soloTrackIndex]) {
-          targetTracks = [midi.tracks[soloTrackIndex]];
-        }
-      }
-
-      // Prepare and sort all playback notes chronologically
-      const notesToPlay: Array<{ midi: number; time: number; duration: number; velocity: number; instType: string }> = [];
-      const scheduledVoiceMap = new Map<string, boolean>();
-
-      targetTracks.forEach((t) => {
-        const programNumber = t.instrument?.number || 0;
-        const instType = getInstType(t.channel || 0, t.name || "", programNumber);
-
-        t.notes.forEach((note) => {
-          if (note.time < startFromTime) return;
-
-          // Merge duplicate voice triggers within 30ms window
-          const quantizedTime = Math.round(note.time * 33) / 33;
-          const voiceKey = `${instType}_${note.midi}_${quantizedTime}`;
-          if (scheduledVoiceMap.has(voiceKey)) return;
-          scheduledVoiceMap.set(voiceKey, true);
-
-          notesToPlay.push({
-            midi: note.midi,
-            time: note.time,
-            duration: Math.max(0.08, note.duration),
-            velocity: note.velocity,
-            instType,
-          });
-        });
-      });
-
-      notesToPlay.sort((a, b) => a.time - b.time);
-      sortedPlaybackNotesRef.current = notesToPlay;
-      nextScheduleIndexRef.current = 0;
-
-      // Rolling Lookahead Web Audio Loop (0.25s lookahead window)
-      // Only schedules upcoming 250ms of audio, so when stopped or paused, audio terminates in <1ms!
-      const scheduleAheadSec = 0.25;
-
-      playbackTimerRef.current = window.setInterval(() => {
-        let elapsedSec = 0;
-        if (audioCtx) {
-          elapsedSec = audioCtx.currentTime - audioStartCtxTime;
-        } else {
-          if (!fallbackTs) fallbackTs = Date.now() - initialCurrentTime * 1000;
-          elapsedSec = (Date.now() - fallbackTs) / 1000;
-        }
-
-        if (elapsedSec <= midi.duration) {
-          setCurrentTime(elapsedSec);
-        } else {
-          setCurrentTime(midi.duration);
-        }
-
-        // Schedule rolling lookahead window
-        if (audioCtx && soundfontRef.current) {
-          const windowEndSec = elapsedSec + scheduleAheadSec;
-          const notes = sortedPlaybackNotesRef.current;
-          let idx = nextScheduleIndexRef.current;
-
-          while (idx < notes.length) {
-            const n = notes[idx];
-            if (n.time > windowEndSec) break;
-            if (n.time >= elapsedSec - 0.05) {
-              if (soloTrackIndex !== "all" || enabledInstrumentsRef.current[n.instType]) {
-                const noteCtxTime = audioStartCtxTime + n.time;
-                soundfontRef.current.start({
-                  note: n.midi,
-                  velocity: Math.floor(n.velocity * 127 * targetVolume),
-                  duration: n.duration,
-                  time: Math.max(audioCtx.currentTime, noteCtxTime),
-                });
-              }
-            }
-            idx++;
-          }
-          nextScheduleIndexRef.current = idx;
-        }
-      }, 40);
-
-      const totalDurationMs = Math.max(0, (midi.duration - startFromTime) * 1000);
-      const endTimeoutId = window.setTimeout(() => {
-        if (loopMode === "one") {
-          playTrack(track, 0, soloTrackIndex);
-        } else {
-          const playlistIndex = playlist.findIndex((t) => t.id === track.id);
-          if (playlistIndex !== -1 && playlistIndex < playlist.length - 1) {
-            playTrack(playlist[playlistIndex + 1], 0);
-          } else {
-            setIsPlaying(false);
-            setActiveMidiNote(null);
-            setAudioStatus("Finished");
-          }
-        }
-      }, totalDurationMs);
-      activeTimeoutsRef.current.push(endTimeoutId);
-
-    } catch (err) {
-      console.error("Playback error", err);
-      setAudioStatus(`Error: ${(err as Error).message}`);
-      setIsPlaying(false);
-    }
-  };
-
-  const togglePlay = () => {
-    if (isPlaying) {
-      pausePlayback();
-      setIsPlaying(false);
-      setAudioStatus("Paused");
-    } else if (currentTrack) {
-      playTrack(currentTrack, currentTime);
-    }
-  };
-
-  const handleSeek = (newTime: number) => {
-    setCurrentTime(newTime);
-    if (currentTrack && isPlaying) {
-      playTrack(currentTrack, newTime);
-    }
-  };
-
-  // Keep enabledInstruments in a Ref to avoid re-triggering component re-renders
-  const enabledInstrumentsRef = useRef(enabledInstruments);
-  useEffect(() => {
-    enabledInstrumentsRef.current = enabledInstruments;
-  }, [enabledInstruments]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        document.activeElement &&
-        (document.activeElement.tagName === "INPUT" ||
-          document.activeElement.tagName === "TEXTAREA" ||
-          (document.activeElement as HTMLElement).isContentEditable)
-      ) {
-        return;
-      }
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        if (currentTrack) {
-          togglePlay();
-        } else if (tracks.length > 0) {
-          playTrack(tracks[0]);
-        }
-      } else if (e.code === "KeyM") {
-        e.preventDefault();
-        setIsMuted((prev) => !prev);
-        message.info(isMuted ? "Audio Unmuted" : "Audio Muted");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [currentTrack, isPlaying, isMuted, tracks, playTrack, togglePlay]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
-  // Filter & Sort tracks in memory
-  const processedTracks = useMemo(() => {
-    let result = [...tracks];
-
-    if (showFavoritesOnly) {
-      const favIds = new Set(playlist.map((t) => t.id));
-      result = result.filter((t) => favIds.has(t.id));
-    }
-
-    if (selectedGenre !== "ALL") {
-      const gLower = selectedGenre.toLowerCase();
-      result = result.filter((t) => {
-        const fullStr = `${t.title} ${t.artist} ${t.file_path}`.toLowerCase();
-        if (gLower === "pop") return fullStr.includes("pop") || fullStr.includes("dance") || fullStr.includes("hit");
-        if (gLower === "rock") return fullStr.includes("rock") || fullStr.includes("metal") || fullStr.includes("band");
-        if (gLower === "country") return fullStr.includes("country") || fullStr.includes("folk");
-        if (gLower === "jazz") return fullStr.includes("jazz") || fullStr.includes("blues");
-        if (gLower === "classical") return fullStr.includes("classic") || fullStr.includes("piano") || fullStr.includes("sonata") || fullStr.includes("symphony") || fullStr.includes("bach") || fullStr.includes("mozart") || fullStr.includes("beethoven") || fullStr.includes("chopin");
-        if (gLower === "electronic") return fullStr.includes("synth") || fullStr.includes("electro") || fullStr.includes("techno") || fullStr.includes("disco");
-        if (gLower === "soundtrack") return fullStr.includes("theme") || fullStr.includes("movie") || fullStr.includes("game") || fullStr.includes("ost");
-        return fullStr.includes(gLower);
-      });
-    }
-
-    if (selectedInstrument !== "ALL") {
-      const instLower = selectedInstrument.toLowerCase();
-      result = result.filter((t) => {
-        if (instLower === "drums") return Boolean(t.has_drums);
-        return (
-          t.primary_instrument?.toLowerCase().includes(instLower) ||
-          t.instruments?.toLowerCase().includes(`"${instLower}"`)
-        );
-      });
-    }
-
-    if (selectedAlpha !== "ALL") {
-      result = result.filter((t) =>
-        t.artist.toUpperCase().startsWith(selectedAlpha)
-      );
-    }
-
-    if (selectedCountry !== "ALL") {
-      result = result.filter((t) => {
-        const fullText = `${t.artist} ${t.title} ${t.file_path}`.toLowerCase();
-        const hasAsianChars = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf\uac00-\ud7af]/.test(`${t.artist} ${t.title}`);
-        const isAsiaKeywords = fullText.includes("japan") || fullText.includes("korea") || fullText.includes("china") || fullText.includes("vietnam") || fullText.includes("anime") || fullText.includes("jpop") || fullText.includes("kpop");
-
-        if (selectedCountry === "ASIA") {
-          return hasAsianChars || isAsiaKeywords;
-        }
-        if (selectedCountry === "US_EU") {
-          return !hasAsianChars && !isAsiaKeywords;
-        }
-        return true;
-      });
-    }
-
-    result.sort((a, b) => {
-      if (sortBy === "artist_asc") return a.artist.localeCompare(b.artist);
-      if (sortBy === "artist_desc") return b.artist.localeCompare(a.artist);
-      if (sortBy === "title_asc") return a.title.localeCompare(b.title);
-      if (sortBy === "title_desc") return b.title.localeCompare(a.title);
-      return 0;
-    });
-
-    return result;
-  }, [tracks, selectedGenre, selectedInstrument, selectedAlpha, selectedCountry, sortBy, showFavoritesOnly, playlist]);
+  }, []);
 
   return (
-    <ConfigProvider theme={getAntdTheme()}>
+    <ConfigProvider theme={getAntdTheme(themeMode)}>
       <div className={`${styles.appContainer} ${styles[`theme_${themeMode}`] || ""}`}>
         {/* Header with Compact Shard Select & Playlist Counter */}
-        <header className={styles.header}>
-          <div className={styles.logoGroup}>
-            <CustomerServiceOutlined style={{ fontSize: 28, color: "#38bdf8" }} />
-            <h1 className={styles.logoTitle}>TN Web MIDI Studio</h1>
-          </div>
-
-          <div className={styles.headerControls}>
-            <Link href="/">
-              <Button type="default" icon={<HomeOutlined style={{ color: "#38bdf8" }} />}>
-                Trang Chủ AI Landing
-              </Button>
-            </Link>
-            {/* Quick Settings Drawer / Modal Button */}
-            <Popover
-              content={
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 220, padding: "6px 0" }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>{t.themeTitle}</div>
-                    <Select
-                      value={themeMode}
-                      style={{ width: "100%" }}
-                      onChange={(val) => setThemeMode(val as ThemeMode)}
-                      options={[
-                        { value: "dark", label: "🌙 Dark Mode" },
-                        { value: "light", label: "☀️ Light Mode" },
-                        { value: "neon", label: "⚡ Neon Cyber" },
-                        { value: "retro", label: "📻 Retro Gold" },
-                      ]}
-                    />
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>{t.langTitle}</div>
-                    <Select
-                      value={language}
-                      style={{ width: "100%" }}
-                      onChange={(val) => setLanguage(val as Language)}
-                      options={[
-                        { value: "vi", label: "🇻🇳 Tiếng Việt" },
-                        { value: "en", label: "🇺🇸 English" },
-                        { value: "ja", label: "🇯🇵 日本語" },
-                      ]}
-                    />
-                  </div>
-                </div>
-              }
-              trigger="click"
-              placement="bottomRight"
-            >
-              <Button icon={<SettingOutlined />} type="default">
-                Settings
-              </Button>
-            </Popover>
-
-            <Button
-              type="primary"
-              icon={<UnorderedListOutlined />}
-              onClick={() => setIsPlaylistOpen(true)}
-              style={{ backgroundColor: "#0284c7" }}
-            >
-              {t.myPlaylist} <Badge count={playlist.length} overflowCount={99} style={{ backgroundColor: "#818cf8", marginLeft: 6 }} />
-            </Button>
-          </div>
-        </header>
+        <StudioHeader
+          playlistCount={playlist.length}
+          onOpenPlaylist={() => setIsPlaylistOpen(true)}
+        />
 
         {/* Main Content Layout - 100% Full Width */}
         <div className={styles.mainLayout}>
           <main className={styles.contentArea}>
             {/* Clean & Streamlined Toolbar Header Bar */}
-            <div className={styles.tableHeaderBar}>
-              <div className={styles.tableTitleInfo}>
-                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>Library Tracks</h2>
-                <Badge count={`${processedTracks.length} tracks`} overflowCount={99999} style={{ backgroundColor: "#0284c7" }} />
-              </div>
-
-              <div className={styles.toolbarRight}>
-                <div className={styles.searchBox}>
-                  <Input
-                    placeholder={t.searchPlaceholder}
-                    prefix={<SearchOutlined />}
-                    allowClear
-                    onChange={(e) => handleSearch(e.target.value)}
-                  />
-                </div>
-
-                <Select
-                  value={selectedGenre}
-                  style={{ width: 130 }}
-                  onChange={handleGenreChange}
-                  options={[
-                    { value: "ALL", label: t.allGenres },
-                    { value: "Pop", label: t.pop },
-                    { value: "Rock", label: t.rock },
-                    { value: "Country", label: t.country },
-                    { value: "Jazz", label: t.jazz },
-                    { value: "Classical", label: t.classical },
-                    { value: "Electronic", label: t.electronic },
-                    { value: "Soundtrack", label: t.soundtrack },
-                  ]}
-                />
-
-                <Select
-                  value={selectedInstrument}
-                  style={{ width: 140 }}
-                  onChange={handleInstrumentChange}
-                  options={[
-                    { value: "ALL", label: t.allInstruments },
-                    { value: "Piano", label: t.instPiano },
-                    { value: "Guitar", label: t.instGuitar },
-                    { value: "Bass", label: t.instBass },
-                    { value: "Strings", label: t.instStrings },
-                    { value: "Brass", label: t.instBrass },
-                    { value: "drums", label: t.instDrums },
-                    { value: "Synth", label: t.instSynth },
-                    { value: "Organ", label: t.instOrgan },
-                  ]}
-                />
-
-                <Select
-                  value={selectedCountry}
-                  style={{ width: 140 }}
-                  onChange={handleCountryChange}
-                  options={[
-                    { value: "ALL", label: t.globalAll },
-                    { value: "US_EU", label: t.usEu },
-                    { value: "ASIA", label: t.asia },
-                  ]}
-                />
-
-                <Button
-                  type={showFavoritesOnly ? "primary" : "default"}
-                  danger={showFavoritesOnly}
-                  icon={showFavoritesOnly ? <HeartFilled /> : <HeartOutlined />}
-                  onClick={handleFavsOnlyToggle}
-                >
-                  {showFavoritesOnly ? t.favoritesOnly : t.allTracks}
-                </Button>
-
-                <Segmented
-                  options={[
-                    { value: "table", icon: <BarsOutlined />, tooltip: t.tableMode },
-                    { value: "grid", icon: <AppstoreOutlined />, tooltip: t.gridMode },
-                    { value: "compact", icon: <MenuOutlined />, tooltip: t.compactMode },
-                    { value: "vinyl", icon: <CompassOutlined />, tooltip: t.vinylMode },
-                  ]}
-                  value={viewMode}
-                  onChange={(val) => handleViewModeChange(val as "table" | "grid" | "compact" | "vinyl")}
-                />
-              </div>
-            </div>
+            <StudioToolbar
+              totalTracksCount={processedTracks.length}
+              searchQuery={searchQuery}
+              onSearch={handleSearch}
+              selectedGenre={selectedGenre}
+              onGenreChange={handleGenreChange}
+              selectedInstrument={selectedInstrument}
+              onInstrumentChange={handleInstrumentChange}
+              selectedCountry={selectedCountry}
+              onCountryChange={handleCountryChange}
+              showFavoritesOnly={showFavoritesOnly}
+              onToggleFavorites={handleFavsOnlyToggle}
+              viewMode={viewMode}
+              onViewModeChange={handleViewModeChange}
+            />
 
             {/* A-Z Quick Filter Bar */}
-            <div className={styles.alphaBar} role="tablist" aria-label="Alphabet Filter">
-              {ALPHA_KEYS.map((key) => (
-                <button
-                  key={key}
-                  tabIndex={0}
-                  role="tab"
-                  aria-selected={selectedAlpha === key}
-                  aria-label={`Filter artists starting with ${key}`}
-                  className={`${styles.alphaBtn} ${selectedAlpha === key ? styles.alphaBtnActive : ""}`}
-                  onClick={() => handleAlphaChange(key)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleAlphaChange(key);
-                    }
-                  }}
-                >
-                  {key}
-                </button>
-              ))}
-            </div>
+            <AlphaFilterBar selectedAlpha={selectedAlpha} onAlphaChange={handleAlphaChange} />
 
             {/* Modular Track List View Component (Table / Grid / Compact / Vinyl) */}
             {loading ? (
-              <div className={styles.tableContainer} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div
+                className={styles.tableContainer}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
                 <Spin description="Mounting SQLite Shard via Web Worker..." size="large" />
               </div>
             ) : (
@@ -860,55 +186,14 @@ function MainStudioContent() {
         </div>
 
         {/* My Playlist Drawer */}
-        <Drawer
-          title={`My Favorite Playlist (${playlist.length} tracks)`}
-          placement="right"
-          onClose={() => setIsPlaylistOpen(false)}
+        <PlaylistDrawer
           open={isPlaylistOpen}
-          style={{ width: 380, maxWidth: "100vw" }}
-          styles={{ body: { padding: 16 } }}
-          extra={
-            <Button
-              type="link"
-              size="small"
-              onClick={() => savePlaylistToStorage(DEFAULT_PRESETS)}
-            >
-              Reset to Preset
-            </Button>
-          }
-        >
-          {playlist.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#64748b", marginTop: 40 }}>
-              <HeartOutlined style={{ fontSize: 36, marginBottom: 12 }} />
-              <div>Your playlist is empty. Click the heart icon on any track to add it here.</div>
-            </div>
-          ) : (
-            playlist.map((track, i) => (
-              <div
-                key={track.id}
-                className={styles.playlistRowItem}
-                onClick={() => {
-                  playTrack(track);
-                  setIsPlaylistOpen(false);
-                }}
-              >
-                <div style={{ overflow: "hidden" }}>
-                  <div style={{ fontWeight: 600, color: "#f8fafc" }}>{i + 1}. {track.title}</div>
-                  <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{track.artist}</div>
-                </div>
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFromPlaylist(track.id);
-                  }}
-                />
-              </div>
-            ))
-          )}
-        </Drawer>
+          onClose={() => setIsPlaylistOpen(false)}
+          playlist={playlist}
+          onPlayTrack={playTrack}
+          onRemoveTrack={removeFromPlaylist}
+          onResetPreset={() => savePlaylistToStorage(DEFAULT_PRESETS)}
+        />
 
         {/* Standalone Footer Player Component */}
         <FooterPlayer

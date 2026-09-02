@@ -1,4 +1,4 @@
-import { TrackRecord } from "./sqlWorker";
+import { TrackRecord } from "@/lib/sqlWorker";
 
 export interface StudioSettings {
   alpha: string;

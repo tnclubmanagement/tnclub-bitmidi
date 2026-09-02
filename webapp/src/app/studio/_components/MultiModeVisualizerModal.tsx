@@ -9,7 +9,8 @@ import {
   CustomerServiceOutlined,
 } from "@ant-design/icons";
 import { Midi } from "@tonejs/midi";
-import PianoRollVisualizer from "@/components/PianoRollVisualizer";
+import { loadParsedMidi } from "@/lib/midiLoader";
+import PianoRollVisualizer from "./PianoRollVisualizer";
 import {
   MultiModeVisualizerModalProps,
   VisualizerMode,
@@ -33,14 +34,49 @@ export default function MultiModeVisualizerModal({
   setEnabledInstruments,
   togglePlay,
   playTrack,
-  getMidiUrl,
   onSeek,
   formatTime,
 }: MultiModeVisualizerModalProps) {
-  const [visMode, setVisMode] = useState<VisualizerMode>("falling-notes");
+  const [visMode, setVisMode] = useState<VisualizerMode>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("tn_stage_vis_mode") as VisualizerMode;
+        if (saved && ["falling-notes", "sheet", "piano-roll"].includes(saved)) return saved;
+      } catch {}
+    }
+    return "falling-notes";
+  });
+
   const [midiData, setMidiData] = useState<Midi | null>(null);
   const [selectedTrackId, setSelectedTrackId] = useState<string>("all");
-  const [dedupSameInstrument, setDedupSameInstrument] = useState<boolean>(true);
+
+  const [dedupSameInstrument, setDedupSameInstrument] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("tn_stage_dedup_instrument");
+        if (saved !== null) return saved === "true";
+      } catch {}
+    }
+    return true;
+  });
+
+  const handleVisModeChange = (val: VisualizerMode) => {
+    setVisMode(val);
+    try {
+      localStorage.setItem("tn_stage_vis_mode", val);
+    } catch (e) {
+      console.warn("Failed to save stage visualizer mode to localStorage", e);
+    }
+  };
+
+  const handleDedupChange = (val: boolean) => {
+    setDedupSameInstrument(val);
+    try {
+      localStorage.setItem("tn_stage_dedup_instrument", String(val));
+    } catch (e) {
+      console.warn("Failed to save stage dedup setting to localStorage", e);
+    }
+  };
 
   const handleTogglePlay = () => {
     if (isPlaying) {
@@ -61,35 +97,27 @@ export default function MultiModeVisualizerModal({
     }
   };
 
-  // Load and parse MIDI file structure for Visualizer rendering
+  // Load and parse MIDI file structure for Visualizer rendering (Cached & Instant)
   useEffect(() => {
-    if (!open || !track) return;
+    if (!open || !track?.file_path) return;
 
     let isMounted = true;
-    async function loadMidiData() {
+    async function loadMidi() {
       try {
-        const res = await fetch(getMidiUrl(track!.file_path));
-        if (!res.ok) throw new Error("MIDI 404");
-        const buffer = await res.arrayBuffer();
-        const parsedMidi = new Midi(buffer);
-        if (isMounted) setMidiData(parsedMidi);
-      } catch (e) {
-        console.warn("Using Dynamic Sequence Fallback for Synced Stage Visualizer", e);
-        const parsedMidi = new Midi();
-        const trk = parsedMidi.addTrack();
-        const notesScale = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
-        notesScale.forEach((n, idx) => {
-          trk.addNote({ midi: n, time: idx * 0.4, duration: 0.35, velocity: 0.85 });
-        });
-        if (isMounted) setMidiData(parsedMidi);
+        const parsedMidi = await loadParsedMidi(track!.file_path);
+        if (isMounted) {
+          setMidiData(parsedMidi);
+        }
+      } catch (err) {
+        console.warn("Failed to load MIDI for visualizer", err);
       }
     }
 
-    loadMidiData();
+    loadMidi();
     return () => {
       isMounted = false;
     };
-  }, [open, track, getMidiUrl]);
+  }, [open, track]);
 
   // Pre-process and unify multi-track notes once when MIDI or filter/track changes
   const fallingNotes = useMemo(() => {
@@ -148,7 +176,7 @@ export default function MultiModeVisualizerModal({
               { value: "piano-roll", label: "🎹 Piano Keyboard Roll" },
             ]}
             value={visMode}
-            onChange={(val) => setVisMode(val as VisualizerMode)}
+            onChange={(val) => handleVisModeChange(val as VisualizerMode)}
           />
         </div>
       }
@@ -224,7 +252,7 @@ export default function MultiModeVisualizerModal({
         selectedTrackId={selectedTrackId}
         setSelectedTrackId={setSelectedTrackId}
         dedupSameInstrument={dedupSameInstrument}
-        setDedupSameInstrument={setDedupSameInstrument}
+        setDedupSameInstrument={handleDedupChange}
         onTrackChange={handleTrackChange}
       />
 

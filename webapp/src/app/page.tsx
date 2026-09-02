@@ -19,7 +19,7 @@ import {
 } from "@ant-design/icons";
 import { Button, Tag, Space, Spin, Popover, Select } from "antd";
 import { AppSettingsProvider, useAppSettings, ThemeMode, Language } from "@/context/AppSettingsContext";
-import { AudioParticleCanvas } from "@/components/AudioParticleCanvas";
+import { AudioParticleCanvas } from "./_components/AudioParticleCanvas";
 import styles from "./landing/landing.module.css";
 
 function MainLandingContent() {
