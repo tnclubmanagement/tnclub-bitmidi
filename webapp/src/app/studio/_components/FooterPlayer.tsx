@@ -10,7 +10,11 @@ import {
   MutedOutlined,
   UnorderedListOutlined,
   EyeOutlined,
+  ThunderboltOutlined,
+  MinusOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
+import { Popover, InputNumber } from "antd";
 import { TrackRecord } from "@/lib/sqlWorker";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import styles from "@/app/app.module.css";
@@ -23,11 +27,14 @@ type FooterPlayerProps = {
   volume: number;
   isMuted: boolean;
   loopMode: "off" | "one";
+  tempoBpm?: number;
+  originalBpm?: number;
   playlistLength: number;
   togglePlay: () => void;
   setLoopMode: (mode: "off" | "one") => void;
   setIsMuted: (muted: boolean) => void;
   setVolume: (vol: number) => void;
+  setTempoBpm?: (bpm: number) => void;
   onOpenPlaylist: () => void;
   onOpenStage: () => void;
   onSeek?: (newTime: number) => void;
@@ -42,11 +49,14 @@ export default function FooterPlayer({
   volume,
   isMuted,
   loopMode,
+  tempoBpm = 120,
+  originalBpm = 120,
   playlistLength,
   togglePlay,
   setLoopMode,
   setIsMuted,
   setVolume,
+  setTempoBpm,
   onOpenPlaylist,
   onOpenStage,
   onSeek,
@@ -78,7 +88,7 @@ export default function FooterPlayer({
       </div>
 
       <div className={styles.audioControlsCenter}>
-        <div className={styles.buttonRow}>
+        <div className={styles.buttonRow} style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Tooltip title={loopMode === "one" ? "Repeat One (Active)" : "Repeat Off"}>
             <Button
               type="text"
@@ -94,6 +104,85 @@ export default function FooterPlayer({
             disabled={!currentTrack}
             onClick={togglePlay}
           />
+          {setTempoBpm && (
+            <Popover
+              trigger="click"
+              placement="top"
+              content={
+                <div style={{ width: 220, padding: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#94a3b8" }}>
+                      TEMPO (BPM)
+                    </span>
+                    <InputNumber
+                      size="small"
+                      min={30}
+                      max={280}
+                      step={1}
+                      value={tempoBpm}
+                      onChange={(val) => val && setTempoBpm(Math.round(val))}
+                      style={{ width: 70 }}
+                    />
+                  </div>
+
+                  <Slider
+                    min={30}
+                    max={240}
+                    step={1}
+                    value={tempoBpm}
+                    onChange={(val) => setTempoBpm(val)}
+                    tooltip={{ formatter: (val) => `${val} BPM` }}
+                  />
+
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                    <Button
+                      size="small"
+                      icon={<MinusOutlined />}
+                      onClick={() => setTempoBpm(Math.max(30, tempoBpm - 5))}
+                    >
+                      -5
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => setTempoBpm(originalBpm)}
+                      style={{ fontSize: "0.75rem", flex: 1 }}
+                    >
+                      Reset ({originalBpm})
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={() => setTempoBpm(Math.min(280, tempoBpm + 5))}
+                    >
+                      +5
+                    </Button>
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {[60, 80, 100, 120, 140, 160].map((bpm) => (
+                      <Button
+                        key={bpm}
+                        size="small"
+                        type={tempoBpm === bpm ? "primary" : "default"}
+                        onClick={() => setTempoBpm(bpm)}
+                        style={{ fontSize: "0.7rem", padding: "0 6px", height: 22 }}
+                      >
+                        {bpm}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              }
+            >
+              <Button
+                size="small"
+                icon={<ThunderboltOutlined style={{ color: "#eab308" }} />}
+                style={{ fontSize: "0.8rem", fontWeight: 600 }}
+              >
+                {tempoBpm} BPM
+              </Button>
+            </Popover>
+          )}
         </div>
         <div className={styles.seekRow}>
           <span className={styles.timeText}>{formatTime(currentTime)}</span>

@@ -11,6 +11,7 @@ export interface StudioSettings {
   volume: number;
   isMuted: boolean;
   loopMode: "off" | "one";
+  tempoBpm: number;
 }
 
 export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
@@ -29,6 +30,7 @@ export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
   volume: 80,
   isMuted: false,
   loopMode: "off",
+  tempoBpm: 120,
 };
 
 const STORAGE_KEYS = {

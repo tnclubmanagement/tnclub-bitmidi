@@ -5,9 +5,10 @@ import styles from "@/app/app.module.css";
 
 interface VisualizerProps {
   activeNote?: number | null;
+  onPlayNote?: (midiNote: number) => void;
 }
 
-export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
+export default function PianoRollVisualizer({ activeNote, onPlayNote }: VisualizerProps) {
   // 52 White Keys mapping
   // A0 (21) to C8 (108)
   const WHITE_KEYS = [
@@ -56,6 +57,19 @@ export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
     { note: 106, afterWhiteIndex: 49 },
   ];
 
+  const getNoteName = (midi: number) => {
+    const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const name = names[midi % 12];
+    const oct = Math.floor(midi / 12) - 1;
+    return `${name}${oct}`;
+  };
+
+  const handleKeyClick = (note: number) => {
+    if (onPlayNote) {
+      onPlayNote(note);
+    }
+  };
+
   return (
     <div
       className={styles.visualizerContainer}
@@ -69,10 +83,10 @@ export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
         <span
           id="piano-active-note-tag"
           data-testid="piano-active-note-tag"
-          aria-label={activeNote ? `Currently active MIDI note: ${activeNote}` : "Waiting for MIDI audio playback"}
+          aria-label={activeNote ? `Currently active MIDI note: ${activeNote} (${getNoteName(activeNote)})` : "Click any key or play MIDI"}
           className={styles.visualizerActiveTag}
         >
-          {activeNote ? `Playing MIDI Note: ${activeNote}` : "Waiting for audio..."}
+          {activeNote ? `Playing MIDI Note: ${activeNote} (${getNoteName(activeNote)})` : "Click key or play audio"}
         </span>
       </div>
 
@@ -92,6 +106,7 @@ export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
             data-active={activeNote === note}
             aria-label={`White Piano Key MIDI Note ${note}${activeNote === note ? " (Playing)" : ""}`}
             className={`${styles.whiteKey} ${activeNote === note ? styles.activeKey : ""}`}
+            onClick={() => handleKeyClick(note)}
           />
         ))}
 
@@ -105,6 +120,7 @@ export default function PianoRollVisualizer({ activeNote }: VisualizerProps) {
             aria-label={`Black Piano Key MIDI Note ${note}${activeNote === note ? " (Playing)" : ""}`}
             className={`${styles.blackKey} ${activeNote === note ? styles.activeKey : ""}`}
             style={{ left: `${((afterWhiteIndex + 1) * (100 / 52)) - (100 / 52 * 0.35)}%` }}
+            onClick={() => handleKeyClick(note)}
           />
         ))}
       </div>

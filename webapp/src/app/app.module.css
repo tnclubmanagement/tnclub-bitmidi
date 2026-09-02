@@ -409,7 +409,16 @@
   border-right: 1px solid #94a3b8;
   border-bottom-left-radius: 4px;
   border-bottom-right-radius: 4px;
-  transition: background 0.1s ease, box-shadow 0.1s ease;
+  cursor: pointer;
+  transition: background 0.1s ease, box-shadow 0.1s ease, transform 0.05s ease;
+}
+
+.whiteKey:hover {
+  background: #bae6fd;
+}
+
+.whiteKey:active {
+  transform: translateY(2px);
 }
 
 .blackKey {
@@ -421,7 +430,16 @@
   border-bottom-right-radius: 3px;
   z-index: 2;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
-  transition: background 0.1s ease, box-shadow 0.1s ease;
+  cursor: pointer;
+  transition: background 0.1s ease, box-shadow 0.1s ease, transform 0.05s ease;
+}
+
+.blackKey:hover {
+  background: #1e293b;
+}
+
+.blackKey:active {
+  transform: translateY(2px);
 }
 
 .activeKey {

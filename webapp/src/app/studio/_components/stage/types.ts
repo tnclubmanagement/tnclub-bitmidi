@@ -25,6 +25,10 @@ export interface MultiModeVisualizerModalProps {
   setEnabledInstruments: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   togglePlay: () => void;
   playTrack: (track: TrackRecord, startFromTime?: number, soloTrackIndex?: number | "all") => void;
+  onPlayNote?: (midiNote: number) => void;
+  tempoBpm?: number;
+  originalBpm?: number;
+  setTempoBpm?: (bpm: number) => void;
   getMidiUrl?: (filePath: string) => string;
   onSeek?: (newTime: number) => void;
   formatTime: (sec: number) => string;

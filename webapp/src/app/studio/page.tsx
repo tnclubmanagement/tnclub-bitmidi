@@ -68,11 +68,15 @@ function MainStudioContent() {
     volume,
     isMuted,
     loopMode,
+    tempoBpm,
+    originalBpm,
     handleVolumeChange,
     handleMutedChange,
     handleLoopModeChange,
+    setTempoBpm,
     pausePlayback,
     playTrack,
+    playSingleNote,
     togglePlay,
     handleSeek,
     formatTime,
@@ -204,11 +208,14 @@ function MainStudioContent() {
           volume={volume}
           isMuted={isMuted}
           loopMode={loopMode}
+          tempoBpm={tempoBpm}
+          originalBpm={originalBpm}
           playlistLength={playlist.length}
           togglePlay={togglePlay}
           setLoopMode={handleLoopModeChange}
           setIsMuted={handleMutedChange}
           setVolume={handleVolumeChange}
+          setTempoBpm={setTempoBpm}
           onSeek={handleSeek}
           onOpenPlaylist={() => setIsPlaylistOpen(true)}
           onOpenStage={() => {
@@ -239,6 +246,10 @@ function MainStudioContent() {
           setEnabledInstruments={updateEnabledInstruments}
           togglePlay={togglePlay}
           playTrack={playTrack}
+          onPlayNote={playSingleNote}
+          tempoBpm={tempoBpm}
+          originalBpm={originalBpm}
+          setTempoBpm={setTempoBpm}
           getMidiUrl={getMidiUrl}
           onSeek={handleSeek}
           formatTime={formatTime}
